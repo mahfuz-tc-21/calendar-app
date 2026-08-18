@@ -330,21 +330,44 @@ export function useChat() {
             markMessagesAsRead(newMsg.conversation_id)
           } else {
             // Otherwise, we are on the calendar page or minimized. Trigger the calendar notification.
-            if (typeof window !== 'undefined' && 'Notification' in window) {
-              if (Notification.permission === 'granted') {
-                const randomMsg = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
+            if (typeof window !== 'undefined') {
+              const randomMsg = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
+              
+              // Check if running inside Capacitor (native mobile environment)
+              const cap = (window as any).Capacitor
+              if (cap && cap.isPluginAvailable('LocalNotifications')) {
                 try {
-                  new Notification("Calendar Event", {
-                    body: randomMsg,
-                    icon: "/favicon.ico",
-                    tag: "calendar-event-reminder"
+                  const { LocalNotifications } = require('@capacitor/local-notifications')
+                  LocalNotifications.schedule({
+                    notifications: [
+                      {
+                        title: "Calendar Event",
+                        body: randomMsg,
+                        id: Math.floor(Math.random() * 100000),
+                        schedule: { at: new Date(Date.now() + 500) }
+                      }
+                    ]
                   })
-                  console.log("Calendar stealth notification dispatched successfully.")
+                  console.log("Capacitor local notification scheduled successfully.")
                 } catch (e) {
-                  console.error("Failed to render push alert:", e)
+                  console.error("Failed to render native local notification:", e)
                 }
-              } else {
-                console.warn("Notification permission is not granted. Current state:", Notification.permission)
+              } else if ('Notification' in window) {
+                // Standard browser push notification
+                if (Notification.permission === 'granted') {
+                  try {
+                    new Notification("Calendar Event", {
+                      body: randomMsg,
+                      icon: "/favicon.ico",
+                      tag: "calendar-event-reminder"
+                    })
+                    console.log("Calendar stealth notification dispatched successfully.")
+                  } catch (e) {
+                    console.error("Failed to render push alert:", e)
+                  }
+                } else {
+                  console.warn("Notification permission is not granted. Current state:", Notification.permission)
+                }
               }
             }
           }
@@ -548,16 +571,28 @@ export function useChat() {
     }
   }, [supabase, showToast, setActiveConversation])
 
-  // Fetch initial conversations list on mount and request Notification permission
+  // Fetch initial conversations list on mount and request Notification permission (including Capacitor support)
   useEffect(() => {
     fetchConversations()
     if (typeof window !== 'undefined') {
-      if (!('Notification' in window)) {
-        console.warn("This browser/device context does not support the Web Notification API (requires HTTPS or Localhost secure contexts).")
-      } else if (Notification.permission === 'default') {
-        Notification.requestPermission().then((res) => {
-          console.log("Web Notification permission request response:", res)
-        })
+      const cap = (window as any).Capacitor
+      if (cap && cap.isPluginAvailable('LocalNotifications')) {
+        try {
+          const { LocalNotifications } = require('@capacitor/local-notifications')
+          LocalNotifications.requestPermissions().then((res: any) => {
+            console.log("Capacitor local notifications permission request response:", res)
+          })
+        } catch (e) {
+          console.error("Capacitor permission request failed:", e)
+        }
+      } else if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then((res) => {
+            console.log("Web Notification permission request response:", res)
+          })
+        }
+      } else {
+        console.warn("This browser/device context does not support native or Web Notification APIs (requires HTTPS or Localhost).")
       }
     }
   }, [fetchConversations])
