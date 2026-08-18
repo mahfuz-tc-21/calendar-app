@@ -139,6 +139,49 @@ export default function ChatArea() {
     return () => document.removeEventListener('click', handleOutsideClick)
   }, [])
 
+  // Touch / Swipe to Reply Handlers
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [dragOffset, setDragOffset] = useState<number>(0)
+  const [draggingMessageId, setDraggingMessageId] = useState<string | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent, messageId: string) => {
+    setTouchStartX(e.touches[0].clientX)
+    setDraggingMessageId(messageId)
+    setDragOffset(0)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent, isOwn: boolean) => {
+    if (touchStartX === null) return
+    const currentX = e.touches[0].clientX
+    const diffX = currentX - touchStartX
+
+    if (isOwn) {
+      // Swiping left (negative X)
+      if (diffX < 0) {
+        setDragOffset(Math.max(-80, diffX))
+      }
+    } else {
+      // Swiping right (positive X)
+      if (diffX > 0) {
+        setDragOffset(Math.min(80, diffX))
+      }
+    }
+  }
+
+  const handleTouchEnd = (message: Message) => {
+    if (Math.abs(dragOffset) > 50) {
+      setReplyingTo(message)
+      if (typeof window !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(15)
+        } catch {}
+      }
+    }
+    setTouchStartX(null)
+    setDraggingMessageId(null)
+    setDragOffset(0)
+  }
+
   // File selection handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -553,115 +596,52 @@ export default function ChatArea() {
                         )}
 
                         {/* Message Bubble container */}
-                        <div className="relative">
-                          {/* Options circular buttons group */}
-                          <div className={`absolute top-1/2 -translate-y-1/2 transition-opacity z-10 flex items-center gap-1.5 ${
-                            activeMessageMenu === m.id 
-                              ? 'opacity-100' 
-                              : 'opacity-60 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100'
-                          } ${
-                            isOwn ? 'right-full mr-2 flex-row' : 'left-full ml-2 flex-row-reverse'
-                          }`}>
-                            {/* 1. More/Delete Options Button */}
-                            <div className="relative flex items-center justify-center">
+                        <div className="relative w-fit max-w-full">
+                          
+                          {/* Swipe Reply indicator behind bubble (mobile only / touch only helper) */}
+                          {draggingMessageId === m.id && Math.abs(dragOffset) > 10 && !isDeleted && (
+                            <div className={`absolute top-1/2 -translate-y-1/2 text-gray-400 flex items-center transition-all ${
+                              isOwn ? 'left-full ml-3' : 'right-full mr-3'
+                            }`}>
+                              <Reply className={`w-4 h-4 transition-transform duration-150 ${
+                                Math.abs(dragOffset) > 50 ? 'scale-125 text-primary' : 'scale-100'
+                              }`} />
+                            </div>
+                          )}
+
+                          {/* Options circular buttons group (desktop only, only Reply button left) */}
+                          {!isDeleted && (
+                            <div className={`absolute top-1/2 -translate-y-1/2 transition-opacity z-10 flex items-center ${
+                              activeMessageMenu === m.id 
+                                ? 'opacity-100' 
+                                : 'opacity-0 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100'
+                            } ${
+                              isOwn ? 'right-full mr-2' : 'left-full ml-2'
+                            }`}>
+                              {/* Reply Action Button */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  if (activeMessageMenu === m.id && activeMenuType === 'more') {
-                                    setActiveMessageMenu(null)
-                                    setActiveMenuType(null)
-                                  } else {
-                                    setActiveMessageMenu(m.id)
-                                    setActiveMenuType('more')
-                                  }
+                                  setReplyingTo(m)
                                 }}
                                 className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
                               >
-                                <MoreVertical className="w-3.5 h-3.5" />
+                                <Reply className="w-3.5 h-3.5" />
                               </button>
-
-                              {/* More/Delete Popover */}
-                              {activeMessageMenu === m.id && activeMenuType === 'more' && (
-                                <div className="absolute bottom-full mb-2 bg-white border border-border rounded-xl shadow-lg p-1 z-20 flex flex-col min-w-[70px] left-1/2 -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
-                                  {isOwn && !isDeleted ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        deleteMessage(m.id)
-                                        setActiveMessageMenu(null)
-                                        setActiveMenuType(null)
-                                      }}
-                                      className="text-[11px] font-semibold px-2 py-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer flex items-center gap-1"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                      Delete
-                                    </button>
-                                  ) : (
-                                    <span className="text-[9px] text-gray-400 px-2 py-1.5 italic text-center">No actions</span>
-                                  )}
-                                </div>
-                              )}
                             </div>
-
-                            {/* 2. Reply Action Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setReplyingTo(m)
-                                setActiveMessageMenu(null)
-                                setActiveMenuType(null)
-                              }}
-                              className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
-                            >
-                              <Reply className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* 3. Smiley Reaction Button */}
-                            <div className="relative flex items-center justify-center">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (activeMessageMenu === m.id && activeMenuType === 'reactions') {
-                                    setActiveMessageMenu(null)
-                                    setActiveMenuType(null)
-                                  } else {
-                                    setActiveMessageMenu(m.id)
-                                    setActiveMenuType('reactions')
-                                  }
-                                }}
-                                className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
-                              >
-                                <Smile className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Reactions Popover */}
-                              {activeMessageMenu === m.id && activeMenuType === 'reactions' && (
-                                <div className="absolute bottom-full mb-2 bg-white border border-border rounded-2xl shadow-lg p-1.5 z-20 flex items-center gap-0.5 left-1/2 -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
-                                  {REACTION_EMOJIS.map((emoji) => (
-                                    <button
-                                      key={emoji}
-                                      type="button"
-                                      onClick={() => {
-                                        handleToggleReaction(m.id, emoji)
-                                        setActiveMessageMenu(null)
-                                        setActiveMenuType(null)
-                                      }}
-                                      className="hover:scale-125 transition-transform p-1 cursor-pointer text-sm"
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          )}
 
                           {/* Message Body */}
                           <div
-                            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                            style={{ 
+                              transform: draggingMessageId === m.id ? `translateX(${dragOffset}px)` : 'none',
+                              transition: draggingMessageId === m.id ? 'none' : 'transform 0.2s ease-out'
+                            }}
+                            onTouchStart={(e) => !isDeleted && handleTouchStart(e, m.id)}
+                            onTouchMove={(e) => !isDeleted && handleTouchMove(e, isOwn)}
+                            onTouchEnd={() => !isDeleted && handleTouchEnd(m)}
+                            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed touch-pan-y ${
                               isDeleted
                                 ? 'bg-gray-100 text-gray-400 italic border border-gray-150'
                                 : isOwn

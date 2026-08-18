@@ -187,28 +187,40 @@ export default function CalendarView() {
         <div className="bg-white p-4 rounded-2xl border border-border shadow-xs space-y-3">
           
           {/* Controls Bar */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+
               <button
-                onClick={handlePrevMonth}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                type="button"
+                onClick={handleToday}
+                className="px-3.5 py-1.5 border border-gray-300 hover:border-gray-400 rounded-lg text-sm font-medium text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors min-h-[40px]"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleNextMonth}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <ChevronRight className="w-5 h-5" />
+                Today
               </button>
             </div>
 
             {/* Dropdowns */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <select
                 value={currentMonth}
                 onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
               >
                 {MONTH_NAMES.map((name, i) => (
                   <option key={name} value={i + 1}>
@@ -220,7 +232,7 @@ export default function CalendarView() {
               <select
                 value={currentYear}
                 onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>
@@ -229,13 +241,6 @@ export default function CalendarView() {
                 ))}
               </select>
             </div>
-
-            <button
-              onClick={handleToday}
-              className="px-3.5 py-1.5 border border-gray-300 hover:border-gray-400 rounded-lg text-sm font-medium text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-            >
-              Today
-            </button>
           </div>
 
           {/* Grid Layout */}
@@ -250,7 +255,7 @@ export default function CalendarView() {
             </div>
 
             {/* Days cells */}
-            <div className="grid grid-cols-7 gap-1 border-t border-gray-100 pt-1">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 border-t border-gray-100 pt-1">
               {gridDays.map(({ dateStr, dayNumber, isCurrentMonth }, index) => {
                 const dayEvents = eventsByDate[dateStr] || []
                 const isSelected = dateStr === selectedDate
@@ -268,7 +273,7 @@ export default function CalendarView() {
                   <button
                     key={dateStr}
                     onClick={handleDayClick}
-                    className={`aspect-square relative flex flex-col items-center justify-center p-1 rounded-xl transition-all cursor-pointer min-h-[44px] select-none ${
+                    className={`aspect-square relative flex flex-col items-center justify-center p-0.5 sm:p-1 rounded-xl transition-all cursor-pointer min-h-[40px] select-none ${
                       isSelected 
                         ? 'bg-primary text-white font-semibold shadow-sm'
                         : isToday
