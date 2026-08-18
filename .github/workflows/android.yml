@@ -49,7 +49,7 @@ jobs:
 
       - name: Generate App Launcher Icons
         run: |
-          npx @capacitor/assets generate --android --assetType icon
+          npx @capacitor/assets generate --android
 
       - name: Sync Web Code to Native App
         run: npx cap sync android
