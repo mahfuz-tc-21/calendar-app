@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useToast } from './ToastContext'
 import { useAuth } from './AuthContext'
+import { getApiUrl } from '@/utils/api'
 
 interface PrivateSpaceContextType {
   isUnlocked: boolean
@@ -33,13 +34,13 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
     try {
       // 1. Check if passcode is configured
-      const checkRes = await fetch('/api/private/check')
+      const checkRes = await fetch(getApiUrl('/api/private/check'))
       const checkData = await checkRes.json()
       setHasPasscode(!!checkData.exists)
 
       // 2. Check if already unlocked (verified by cookie)
       if (checkData.exists) {
-        const verifyRes = await fetch('/api/private/verify-session')
+        const verifyRes = await fetch(getApiUrl('/api/private/verify-session'))
         const verifyData = await verifyRes.json()
         setIsUnlocked(!!verifyData.unlocked)
       } else {
@@ -58,7 +59,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const unlock = async (passcode: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/private/unlock', {
+      const res = await fetch(getApiUrl('/api/private/unlock'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode }),
@@ -82,7 +83,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const setupPasscode = async (passcode: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/private/setup', {
+      const res = await fetch(getApiUrl('/api/private/setup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode }),
@@ -107,7 +108,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const lock = async () => {
     try {
-      await fetch('/api/private/lock', { method: 'POST' })
+      await fetch(getApiUrl('/api/private/lock'), { method: 'POST' })
     } catch (err) {
       console.error('Error calling lock API:', err)
     } finally {

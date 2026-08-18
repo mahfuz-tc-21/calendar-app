@@ -33,6 +33,7 @@ jobs:
           EXPORT: 'true'
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+          NEXT_PUBLIC_HOSTED_URL: ${{ secrets.NEXT_PUBLIC_HOSTED_URL || 'https://placeholder.vercel.app' }}
 
       - name: Set up Java JDK 21
         uses: actions/setup-java@v4

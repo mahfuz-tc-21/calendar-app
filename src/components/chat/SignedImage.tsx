@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Loader2, ImageOff } from 'lucide-react'
+import { getApiUrl } from '@/utils/api'
 
 interface SignedImageProps {
   path: string
@@ -22,7 +23,7 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
       try {
         setLoading(true)
         setError(false)
-        const res = await fetch(`/api/private/sign-url?path=${encodeURIComponent(path)}`)
+        const res = await fetch(getApiUrl(`/api/private/sign-url?path=${encodeURIComponent(path)}`))
         if (!res.ok) throw new Error('Failed to sign URL')
         const data = await res.json()
         if (active) {
