@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const apiDir = path.join(__dirname, '../src/app/api');
-const tempApiDir = path.join(__dirname, '../src/app/api_temp');
+const tempApiDir = path.join(__dirname, '../src/api_temp');
 
 let apiMoved = false;
 
@@ -43,7 +43,7 @@ try {
       fs.renameSync(tempApiDir, apiDir);
       console.log('Restored API directory back to src/app/api.');
     } catch (restoreError) {
-      console.error('Failed to restore API directory. Please manually rename src/app/api_temp to src/app/api.', restoreError);
+      console.error('Failed to restore API directory. Please manually rename src/api_temp to src/app/api.', restoreError);
     }
   }
 }
