@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -688,15 +688,24 @@ export default function ChatArea() {
                               <p className="whitespace-pre-wrap break-words">{m.content}</p>
                             )}
 
-                            {/* Timestamp */}
-                            <div className={`text-[9px] mt-1 text-right shrink-0 select-none ${
+                            {/* Timestamp & Read Receipts */}
+                            <div className={`text-[9px] mt-1 text-right shrink-0 select-none flex items-center justify-end gap-0.5 ${
                               isOwn ? 'text-blue-200' : 'text-gray-400'
                             }`}>
-                              {new Date(m.created_at).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false,
-                              })}
+                              <span>
+                                {new Date(m.created_at).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false,
+                                })}
+                              </span>
+                              {isOwn && !isDeleted && (
+                                m.read_at ? (
+                                  <CheckCheck className="w-3.5 h-3.5 text-blue-100" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5 text-blue-200/60" />
+                                )
+                              )}
                             </div>
                           </div>
 

@@ -1,9 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useAuth, Profile } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
+
+const CALENDAR_STEALTH_MESSAGES = [
+  "Upcoming event reminder: Daily check-in.",
+  "Event starts soon: Schedule sync.",
+  "Reminder: Calendar event scheduled for today.",
+  "Schedule update: Event reminder.",
+  "Upcoming task: Review calendar sync agenda."
+];
 
 export interface Message {
   id: string
@@ -13,6 +21,7 @@ export interface Message {
   message_type: 'text' | 'image'
   image_path: string | null
   reply_to_message_id: string | null
+  read_at: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -43,6 +52,18 @@ export interface Conversation {
 export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
+  
+  // Refs to prevent stale closures in global realtime handlers
+  const conversationsRef = useRef<Conversation[]>([])
+  const activeConversationRef = useRef<Conversation | null>(null)
+
+  useEffect(() => {
+    conversationsRef.current = conversations
+  }, [conversations])
+
+  useEffect(() => {
+    activeConversationRef.current = activeConversation
+  }, [activeConversation])
   const [messages, setMessages] = useState<Message[]>([])
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({})
   const [loadingConversations, setLoadingConversations] = useState(false)
@@ -209,6 +230,21 @@ export function useChat() {
     }
   }
 
+  // Helper to mark messages in a conversation as read
+  const markMessagesAsRead = useCallback(async (convId: string) => {
+    if (!user) return
+    try {
+      await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('conversation_id', convId)
+        .neq('sender_id', user.id)
+        .is('read_at', null)
+    } catch (err) {
+      console.error('Error marking messages as read:', err)
+    }
+  }, [supabase, user])
+
   // 3. Fetch messages for active conversation
   const fetchMessages = useCallback(async (convId: string) => {
     setLoadingMessages(true)
@@ -245,13 +281,18 @@ export function useChat() {
       }
 
       setMessages(msgRows || [])
+      
+      // Mark messages as read when loaded
+      if (msgRows && msgRows.some((m) => m.sender_id !== user?.id && !m.read_at)) {
+        markMessagesAsRead(convId)
+      }
     } catch (err: any) {
       console.error('Error fetching messages:', err)
       showToast('Failed to load messages', 'error')
     } finally {
       setLoadingMessages(false)
     }
-  }, [supabase, showToast])
+  }, [supabase, showToast, user, markMessagesAsRead])
 
   // Fetch messages whenever the active conversation changes
   useEffect(() => {
@@ -263,34 +304,79 @@ export function useChat() {
     }
   }, [activeConversation, fetchMessages])
 
-  // 4. Realtime subscription to messages & reactions table
+  // 4. Global Realtime subscription to new messages (for background alerts and notifications)
+  useEffect(() => {
+    if (!user) return
+
+    const globalChannel = supabase
+      .channel('global_messages_feed')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMsg = payload.new as Message
+          if (newMsg.sender_id === user.id) return
+
+          // If the chat room is currently open, load the message in the feed
+          if (activeConversationRef.current?.id === newMsg.conversation_id) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+            markMessagesAsRead(newMsg.conversation_id)
+          } else {
+            // Otherwise, we are on the calendar page or minimized. Trigger the calendar notification.
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+              if (Notification.permission === 'granted') {
+                const randomMsg = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
+                try {
+                  new Notification("Calendar Event", {
+                    body: randomMsg,
+                    icon: "/favicon.ico",
+                    tag: "calendar-event-reminder"
+                  })
+                  console.log("Calendar stealth notification dispatched successfully.")
+                } catch (e) {
+                  console.error("Failed to render push alert:", e)
+                }
+              } else {
+                console.warn("Notification permission is not granted. Current state:", Notification.permission)
+              }
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(globalChannel)
+    }
+  }, [supabase, user, markMessagesAsRead])
+
+  // 5. Active Chat subscription (for realtime message updates/deletes and reactions)
   useEffect(() => {
     if (!activeConversation) return
 
     const convId = activeConversation.id
 
-    // Messages subscription
-    const messageChannel = supabase
-      .channel(`chat_messages_${convId}`)
+    // Messages UPDATE subscription
+    const activeChannel = supabase
+      .channel(`active_chat_updates_${convId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${convId}`,
         },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newMsg = payload.new as Message
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === newMsg.id)) return prev
-              return [...prev, newMsg]
-            })
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMsg = payload.new as Message
-            setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)))
-          }
+          const updatedMsg = payload.new as Message
+          setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)))
         }
       )
       .subscribe()
@@ -331,7 +417,7 @@ export function useChat() {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(messageChannel)
+      supabase.removeChannel(activeChannel)
       supabase.removeChannel(reactionChannel)
     }
   }, [activeConversation, supabase])
@@ -462,9 +548,18 @@ export function useChat() {
     }
   }, [supabase, showToast, setActiveConversation])
 
-  // Fetch initial conversations list on mount
+  // Fetch initial conversations list on mount and request Notification permission
   useEffect(() => {
     fetchConversations()
+    if (typeof window !== 'undefined') {
+      if (!('Notification' in window)) {
+        console.warn("This browser/device context does not support the Web Notification API (requires HTTPS or Localhost secure contexts).")
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then((res) => {
+          console.log("Web Notification permission request response:", res)
+        })
+      }
+    }
   }, [fetchConversations])
 
   return {

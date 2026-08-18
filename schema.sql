@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
   message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image')),
   image_path TEXT,
   reply_to_message_id UUID REFERENCES public.messages(id) ON DELETE SET NULL,
+  read_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE
@@ -249,10 +250,12 @@ CREATE POLICY "Allow insert on messages for conversation members"
   );
 
 DROP POLICY IF EXISTS "Allow soft delete or update on own messages" ON public.messages;
-CREATE POLICY "Allow soft delete or update on own messages"
+DROP POLICY IF EXISTS "Allow update on messages for conversation members" ON public.messages;
+CREATE POLICY "Allow update on messages for conversation members"
   ON public.messages FOR UPDATE
   TO authenticated
-  USING (sender_id = auth.uid());
+  USING (is_conversation_member(conversation_id))
+  WITH CHECK (is_conversation_member(conversation_id));
 
 -- Message Reactions
 DROP POLICY IF EXISTS "Allow select on message reactions for conversation members" ON public.message_reactions;
