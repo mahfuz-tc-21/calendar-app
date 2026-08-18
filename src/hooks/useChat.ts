@@ -443,6 +443,25 @@ export function useChat() {
     }
   }
 
+  // 9. Delete conversation
+  const deleteConversation = useCallback(async (conversationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId)
+
+      if (error) throw error
+
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId))
+      setActiveConversation(null)
+      showToast('Conversation deleted successfully', 'success')
+    } catch (err: any) {
+      console.error('Error deleting conversation:', err)
+      showToast(err?.message || 'Failed to delete conversation', 'error')
+    }
+  }, [supabase, showToast, setActiveConversation])
+
   // Fetch initial conversations list on mount
   useEffect(() => {
     fetchConversations()
@@ -462,5 +481,6 @@ export function useChat() {
     addReaction,
     removeReaction,
     fetchConversations,
+    deleteConversation,
   }
 }

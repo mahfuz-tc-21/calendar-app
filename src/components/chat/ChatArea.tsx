@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -61,6 +61,7 @@ export default function ChatArea() {
     deleteMessage,
     addReaction,
     removeReaction,
+    deleteConversation,
   } = useChat()
 
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null)
@@ -115,6 +116,7 @@ export default function ChatArea() {
   // Action states
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null)
+  const [activeMenuType, setActiveMenuType] = useState<'reactions' | 'more' | null>(null)
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
 
   // Refs
@@ -131,6 +133,7 @@ export default function ChatArea() {
   useEffect(() => {
     const handleOutsideClick = () => {
       setActiveMessageMenu(null)
+      setActiveMenuType(null)
     }
     document.addEventListener('click', handleOutsideClick)
     return () => document.removeEventListener('click', handleOutsideClick)
@@ -396,13 +399,29 @@ export default function ChatArea() {
           )}
         </div>
 
-        <button
-          onClick={handleLockExit}
-          title="Lock Private Space"
-          className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
-        >
-          <Lock className="w-4.5 h-4.5" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          {activeConversation && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this full conversation? This will permanently delete all messages and history.')) {
+                  deleteConversation(activeConversation.id)
+                }
+              }}
+              title="Delete Full Conversation"
+              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-gray-500 hover:text-red-600 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <Trash2 className="w-4.5 h-4.5" />
+            </button>
+          )}
+          <button
+            onClick={handleLockExit}
+            title="Lock Private Space"
+            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+          >
+            <Lock className="w-4.5 h-4.5" />
+          </button>
+        </div>
       </header>
 
       {/* 2. CHAT AGENT CONTAINER */}
@@ -535,70 +554,109 @@ export default function ChatArea() {
 
                         {/* Message Bubble container */}
                         <div className="relative">
-                          {/* Options dropdown button */}
-                          <div className={`absolute top-1/2 -translate-y-1/2 transition-opacity z-10 ${
+                          {/* Options circular buttons group */}
+                          <div className={`absolute top-1/2 -translate-y-1/2 transition-opacity z-10 flex items-center gap-1.5 ${
                             activeMessageMenu === m.id 
                               ? 'opacity-100' 
                               : 'opacity-60 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100'
                           } ${
-                            isOwn ? 'left-0 -translate-x-12' : 'right-0 translate-x-12'
+                            isOwn ? 'right-full mr-2 flex-row' : 'left-full ml-2 flex-row-reverse'
                           }`}>
+                            {/* 1. More/Delete Options Button */}
+                            <div className="relative flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (activeMessageMenu === m.id && activeMenuType === 'more') {
+                                    setActiveMessageMenu(null)
+                                    setActiveMenuType(null)
+                                  } else {
+                                    setActiveMessageMenu(m.id)
+                                    setActiveMenuType('more')
+                                  }
+                                }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* More/Delete Popover */}
+                              {activeMessageMenu === m.id && activeMenuType === 'more' && (
+                                <div className="absolute bottom-full mb-2 bg-white border border-border rounded-xl shadow-lg p-1 z-20 flex flex-col min-w-[70px] left-1/2 -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
+                                  {isOwn && !isDeleted ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        deleteMessage(m.id)
+                                        setActiveMessageMenu(null)
+                                        setActiveMenuType(null)
+                                      }}
+                                      className="text-[11px] font-semibold px-2 py-1.5 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer flex items-center gap-1"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                      Delete
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] text-gray-400 px-2 py-1.5 italic text-center">No actions</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 2. Reply Action Button */}
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setActiveMessageMenu(activeMessageMenu === m.id ? null : m.id)
+                                setReplyingTo(m)
+                                setActiveMessageMenu(null)
+                                setActiveMenuType(null)
                               }}
-                              className="p-1 text-gray-400 hover:text-gray-700 bg-white border border-gray-200 rounded-lg shadow-xs cursor-pointer"
+                              className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
                             >
-                              <Smile className="w-4 h-4" />
+                              <Reply className="w-3.5 h-3.5" />
                             </button>
-                            
-                            {/* Message actions popover menu */}
-                            {activeMessageMenu === m.id && (
-                              <div className={`absolute bottom-full mb-1 bg-white border border-border rounded-xl shadow-lg p-2 z-20 flex items-center gap-1.5 whitespace-nowrap ${
-                                isOwn ? 'left-0' : 'right-0'
-                              }`} onClick={(e) => e.stopPropagation()}>
-                                {/* Reactions */}
-                                <div className="flex items-center gap-0.5 pr-2 border-r border-gray-150">
+
+                            {/* 3. Smiley Reaction Button */}
+                            <div className="relative flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (activeMessageMenu === m.id && activeMenuType === 'reactions') {
+                                    setActiveMessageMenu(null)
+                                    setActiveMenuType(null)
+                                  } else {
+                                    setActiveMessageMenu(m.id)
+                                    setActiveMenuType('reactions')
+                                  }
+                                }}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Reactions Popover */}
+                              {activeMessageMenu === m.id && activeMenuType === 'reactions' && (
+                                <div className="absolute bottom-full mb-2 bg-white border border-border rounded-2xl shadow-lg p-1.5 z-20 flex items-center gap-0.5 left-1/2 -translate-x-1/2" onClick={(e) => e.stopPropagation()}>
                                   {REACTION_EMOJIS.map((emoji) => (
                                     <button
                                       key={emoji}
+                                      type="button"
                                       onClick={() => {
                                         handleToggleReaction(m.id, emoji)
                                         setActiveMessageMenu(null)
+                                        setActiveMenuType(null)
                                       }}
-                                      className="hover:scale-125 transition-transform p-1 cursor-pointer"
+                                      className="hover:scale-125 transition-transform p-1 cursor-pointer text-sm"
                                     >
                                       {emoji}
                                     </button>
                                   ))}
                                 </div>
-                                {/* Actions */}
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => {
-                                      setReplyingTo(m)
-                                      setActiveMessageMenu(null)
-                                    }}
-                                    className="text-xs font-semibold px-2 py-1 hover:bg-gray-50 text-gray-700 rounded-lg cursor-pointer"
-                                  >
-                                    Reply
-                                  </button>
-                                  {isOwn && !isDeleted && (
-                                    <button
-                                      onClick={() => {
-                                        deleteMessage(m.id)
-                                        setActiveMessageMenu(null)
-                                      }}
-                                      className="text-xs font-semibold px-2 py-1 hover:bg-red-50 text-red-600 rounded-lg cursor-pointer flex items-center gap-1"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                      Delete
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
 
                           {/* Message Body */}

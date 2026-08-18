@@ -212,6 +212,12 @@ CREATE POLICY "Allow insert on conversations for authenticated users"
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow delete on conversations for members" ON public.conversations;
+CREATE POLICY "Allow delete on conversations for members"
+  ON public.conversations FOR DELETE
+  TO authenticated
+  USING (is_conversation_member(id));
+
 -- Conversation Members
 DROP POLICY IF EXISTS "Allow select on conversation_members for members" ON public.conversation_members;
 CREATE POLICY "Allow select on conversation_members for members"
