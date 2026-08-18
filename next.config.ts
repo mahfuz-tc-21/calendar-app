@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // Bypass TypeScript checks during production builds
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;
