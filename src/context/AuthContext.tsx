@@ -266,12 +266,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
 
             await PushNotifications.addListener('pushNotificationActionPerformed', (action: any) => {
-              const data = action.notification?.data
-              if (data && data.conversationId) {
-                console.log('Push notification action tapped, conversationId:', data.conversationId)
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('open-chat', { detail: data.conversationId }))
-                }
+              console.log('Push notification action tapped, redirecting to calendar for safety.')
+              if (typeof window !== 'undefined') {
+                window.location.href = '/calendar'
               }
             })
           } catch (e) {

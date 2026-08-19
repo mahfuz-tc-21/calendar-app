@@ -96,11 +96,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Firebase SDK not initialized' }, { status: 500 })
     }
 
+    const CALENDAR_STEALTH_MESSAGES = [
+      { title: "Calendar Reminder", body: "Upcoming event reminder: Daily check-in." },
+      { title: "Schedule Sync", body: "Event starts soon: Schedule sync." },
+      { title: "Calendar Sync", body: "Reminder: Calendar event scheduled for today." },
+      { title: "Task Update", body: "Schedule update: Event reminder." },
+      { title: "Upcoming Event", body: "Upcoming task: Review calendar sync agenda." }
+    ]
+
+    const randomStealth = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
+
     const fcmPayload = {
       token: pushToken,
       notification: {
-        title: 'New message',
-        body: 'You have a new message.'
+        title: randomStealth.title,
+        body: randomStealth.body
       },
       data: {
         conversationId: record.conversation_id

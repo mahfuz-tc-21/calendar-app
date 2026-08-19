@@ -900,30 +900,7 @@ export function useChat() {
     }
   }, [fetchConversations])
 
-  // Listen for push notification click events to route active conversation selection
-  useEffect(() => {
-    const handleOpenChatEvent = (e: any) => {
-      const convId = e.detail
-      if (!convId) return
-      
-      const match = conversationsRef.current.find((c) => c.id === convId)
-      if (match) {
-        setActiveConversation(match)
-      } else {
-        fetchConversations().then(() => {
-          const freshMatch = conversationsRef.current.find((c) => c.id === convId)
-          if (freshMatch) {
-            setActiveConversation(freshMatch)
-          }
-        })
-      }
-    }
 
-    window.addEventListener('open-chat', handleOpenChatEvent)
-    return () => {
-      window.removeEventListener('open-chat', handleOpenChatEvent)
-    }
-  }, [fetchConversations, setActiveConversation])
 
   return {
     conversations,
