@@ -55,14 +55,24 @@ jobs:
       - name: Sync Web Code to Native App
         run: npx cap sync android
 
-      - name: Build Debug APK via Gradle
+      - name: Build Release APK via Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
-      - name: Upload Debug APK Artifact
+      - name: Sign Release APK
+        id: sign_app
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Signed Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: secure-calendar-android-app
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Calendar
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
