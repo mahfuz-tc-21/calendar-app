@@ -5,6 +5,10 @@ import { Loader2, ImageOff } from 'lucide-react'
 import { getApiUrl } from '@/utils/api'
 import { createClient } from '@/utils/supabase/client'
 
+// Session-level memory cache for signed URLs to prevent concurrent or duplicate signing API requests
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
+const CACHE_DURATION_MS = 15 * 60 * 1000 // Cache URL for 15 minutes
+
 interface SignedImageProps {
   path: string
   alt: string
@@ -21,6 +25,16 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
     let active = true
 
     const fetchSignedUrl = async () => {
+      // Check cache first before querying database/signing API
+      const cached = signedUrlCache.get(path)
+      if (cached && cached.expiresAt > Date.now()) {
+        if (active) {
+          setUrl(cached.url)
+          setLoading(false)
+        }
+        return
+      }
+
       try {
         setLoading(true)
         setError(false)
@@ -40,6 +54,13 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
         })
         if (!res.ok) throw new Error('Failed to sign URL')
         const data = await res.json()
+
+        // Cache the newly fetched signed URL
+        signedUrlCache.set(path, {
+          url: data.url,
+          expiresAt: Date.now() + CACHE_DURATION_MS
+        })
+
         if (active) {
           setUrl(data.url)
         }
@@ -83,6 +104,7 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
       src={url}
       alt={alt}
       onClick={onClick}
+      loading="lazy"
       className={`object-cover cursor-pointer hover:opacity-95 transition-opacity ${className}`}
     />
   )

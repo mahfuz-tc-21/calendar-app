@@ -72,17 +72,27 @@ export function useChat() {
   }, [activeConversation])
   const [messages, setMessages] = useState<Message[]>([])
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({})
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
   const [loadingConversations, setLoadingConversations] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
 
   // Offline queue storage and state
   const [offlineQueue, setOfflineQueue] = useState<any[]>([])
+  const offlineQueueRef = useRef<any[]>([])
+
+  useEffect(() => {
+    offlineQueueRef.current = offlineQueue
+  }, [offlineQueue])
 
   // Realtime typing indicator states
   const [partnerIsTyping, setPartnerIsTyping] = useState(false)
   const broadcastChannelRef = useRef<any>(null)
 
-  const supabase = createClient()
+  const supabaseRef = useRef<any>(null)
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
+  const supabase = supabaseRef.current
   const { user, profile } = useAuth()
   const { showToast } = useToast()
 
@@ -265,36 +275,41 @@ export function useChat() {
 
       const conversationIds = memberRows.map((r: any) => r.conversation_id)
 
-      // Fetch unread message counts for all active conversations in a single query check
-      const { data: unreadRows } = await supabase
-        .from('messages')
-        .select('conversation_id')
-        .neq('sender_id', user.id)
-        .is('read_at', null)
+      // Fetch unread count and members details in parallel
+      const [unreadResult, membersResult] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('conversation_id')
+          .in('conversation_id', conversationIds)
+          .neq('sender_id', user.id)
+          .is('read_at', null),
+        supabase
+          .from('conversation_members')
+          .select(`
+            conversation_id,
+            user_id,
+            profiles (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              created_at,
+              updated_at
+            )
+          `)
+          .in('conversation_id', conversationIds)
+      ])
+
+      const { data: unreadRows, error: unreadErr } = unreadResult
+      const { data: allMembers, error: membersErr } = membersResult
+
+      if (unreadErr) throw unreadErr
+      if (membersErr) throw membersErr
 
       const unreadMap: Record<string, number> = {}
       unreadRows?.forEach((row: any) => {
         unreadMap[row.conversation_id] = (unreadMap[row.conversation_id] || 0) + 1
       })
-
-      // Fetch the members of these conversations
-      const { data: allMembers, error: membersErr } = await supabase
-        .from('conversation_members')
-        .select(`
-          conversation_id,
-          user_id,
-          profiles (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            created_at,
-            updated_at
-          )
-        `)
-        .in('conversation_id', conversationIds)
-
-      if (membersErr) throw membersErr
 
       // Parse conversations and find the chat partner (the other user)
       const list: Conversation[] = []
@@ -458,21 +473,25 @@ export function useChat() {
 
       const historyClearedAt = memberInfo?.history_cleared_at || new Date(0).toISOString()
 
+      // Fetch the latest 15 messages for performance, ordered descending, then reverse them locally
       const { data: msgRows, error: msgErr } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at')
         .eq('conversation_id', convId)
         .gte('created_at', historyClearedAt)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
+        .limit(15)
 
       if (msgErr) throw msgErr
 
+      const finalMsgs = msgRows ? [...msgRows].reverse() : []
+
       // Fetch all reactions for these messages
-      if (msgRows && msgRows.length > 0) {
-        const msgIds = msgRows.map((m: any) => m.id)
+      if (finalMsgs.length > 0) {
+        const msgIds = finalMsgs.map((m: any) => m.id)
         const { data: reactionRows, error: reactErr } = await supabase
           .from('message_reactions')
-          .select('*')
+          .select('id, message_id, user_id, reaction, created_at')
           .in('message_id', msgIds)
 
         if (reactErr) throw reactErr
@@ -490,12 +509,16 @@ export function useChat() {
         setReactions({})
       }
 
-      setMessages(msgRows || [])
+      const pendingForThisConv = offlineQueueRef.current.filter(
+        (m) => m.conversation_id === convId
+      )
+      setMessages([...finalMsgs, ...pendingForThisConv])
+      setHasMoreMessages(msgRows ? msgRows.length === 15 : false)
       
       // Mark messages as read and delivered when loaded
-      if (msgRows && msgRows.some((m: any) => m.sender_id !== user?.id && !m.read_at)) {
+      if (finalMsgs.length > 0 && finalMsgs.some((m: any) => m.sender_id !== user?.id && !m.read_at)) {
         markMessagesAsRead(convId)
-      } else if (msgRows && msgRows.some((m: any) => m.sender_id !== user?.id && !m.delivered_at)) {
+      } else if (finalMsgs.length > 0 && finalMsgs.some((m: any) => m.sender_id !== user?.id && !m.delivered_at)) {
         supabase
           .from('messages')
           .update({ delivered_at: new Date().toISOString() })
@@ -511,6 +534,67 @@ export function useChat() {
       setLoadingMessages(false)
     }
   }, [supabase, showToast, user, markMessagesAsRead])
+
+  // Load older messages for infinite scroll
+  const loadOlderMessages = useCallback(async () => {
+    if (!activeConversation || !user || loadingMessages || !hasMoreMessages || messages.length === 0) return
+
+    const convId = activeConversation.id
+    const oldestMessageTimestamp = messages[0].created_at
+
+    try {
+      const { data: memberInfo } = await supabase
+        .from('conversation_members')
+        .select('history_cleared_at')
+        .eq('conversation_id', convId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const historyClearedAt = memberInfo?.history_cleared_at || new Date(0).toISOString()
+
+      const { data: olderRows, error: msgErr } = await supabase
+        .from('messages')
+        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at')
+        .eq('conversation_id', convId)
+        .gte('created_at', historyClearedAt)
+        .lt('created_at', oldestMessageTimestamp)
+        .order('created_at', { ascending: false })
+        .limit(15)
+
+      if (msgErr) throw msgErr
+
+      if (olderRows && olderRows.length > 0) {
+        const reversed = [...olderRows].reverse()
+        setMessages((prev) => [...reversed, ...prev])
+        
+        // Fetch reactions for older messages
+        const msgIds = olderRows.map((m: any) => m.id)
+        const { data: reactionRows } = await supabase
+          .from('message_reactions')
+          .select('id, message_id, user_id, reaction, created_at')
+          .in('message_id', msgIds)
+
+        if (reactionRows && reactionRows.length > 0) {
+          setReactions((prev) => {
+            const next = { ...prev }
+            reactionRows.forEach((r: any) => {
+              if (!next[r.message_id]) {
+                next[r.message_id] = []
+              }
+              if (!next[r.message_id].some((ex: any) => ex.id === r.id)) {
+                next[r.message_id].push(r)
+              }
+            })
+            return next
+          })
+        }
+      }
+
+      setHasMoreMessages(olderRows ? olderRows.length === 15 : false)
+    } catch (err) {
+      console.error('Error loading older messages:', err)
+    }
+  }, [activeConversation, user, messages, loadingMessages, hasMoreMessages, supabase])
 
   // Fetch messages whenever the active conversation changes
   useEffect(() => {
@@ -921,5 +1005,7 @@ export function useChat() {
     partnerIsTyping,
     setLocalTypingStatus,
     syncOfflineQueue,
+    hasMoreMessages,
+    loadOlderMessages,
   }
 }

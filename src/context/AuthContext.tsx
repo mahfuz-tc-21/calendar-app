@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { type User } from '@supabase/supabase-js'
 
@@ -28,13 +28,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
+  
+  const supabaseRef = useRef<any>(null)
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
+  const supabase = supabaseRef.current
 
   const fetchProfile = async (uid: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at')
         .eq('id', uid)
         .single()
       if (data) {
@@ -73,13 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       const currentUser = session?.user ?? null
-      setUser(currentUser)
+      setUser((prevUser) => {
+        if (prevUser?.id === currentUser?.id) {
+          return prevUser
+        }
+        if (currentUser) {
+          fetchProfile(currentUser.id)
+        } else {
+          setProfile(null)
+        }
+        return currentUser
+      })
       setIsLoading(false)
-      if (currentUser) {
-        await fetchProfile(currentUser.id)
-      } else {
-        setProfile(null)
-      }
     })
 
     return () => {
@@ -150,6 +160,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           LocalNotifications.requestPermissions().then((res: any) => {
             console.log("Capacitor local notifications permission response:", res)
           })
+
+          // Add listener for local notification click actions (native redirection)
+          LocalNotifications.addListener('localNotificationActionPerformed', (action: any) => {
+            console.log("Capacitor local notification clicked, redirecting to calendar dashboard:", action)
+            window.location.href = '/calendar'
+          })
         } catch (e) {
           console.error("Capacitor permission request failed:", e)
         }
@@ -217,11 +233,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else if ('Notification' in window) {
               if (Notification.permission === 'granted') {
                 try {
-                  new Notification("Calendar Event", {
+                  const notification = new Notification("Calendar Event", {
                     body: randomMsg,
                     icon: "/favicon.ico",
                     tag: "calendar-event-reminder"
                   })
+                  notification.onclick = (e) => {
+                    e.preventDefault()
+                    window.focus()
+                    window.location.href = '/calendar'
+                    notification.close()
+                  }
                 } catch (e) {
                   console.error("Failed to render web notification:", e)
                 }

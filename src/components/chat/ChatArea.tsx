@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo, useCallback, useTransition } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck, ChevronDown } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -10,11 +10,13 @@ import { usePrivateSpace } from '@/context/PrivateSpaceContext'
 import { useToast } from '@/context/ToastContext'
 import { createClient } from '@/utils/supabase/client'
 import SignedImage from './SignedImage'
-import EmojiPicker from './EmojiPicker'
-import GifPicker from './GifPicker'
-import StickerPicker from './StickerPicker'
-import MessageMenu from './MessageMenu'
-import ProfileModal from '../profile/ProfileModal'
+import dynamic from 'next/dynamic'
+
+const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false })
+const GifPicker = dynamic(() => import('./GifPicker'), { ssr: false })
+const StickerPicker = dynamic(() => import('./StickerPicker'), { ssr: false })
+const MessageMenu = dynamic(() => import('./MessageMenu'), { ssr: false })
+const ProfileModal = dynamic(() => import('../profile/ProfileModal'), { ssr: false })
 import { Clipboard } from '@capacitor/clipboard'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
@@ -76,6 +78,8 @@ export default function ChatArea() {
     partnerIsTyping,
     setLocalTypingStatus,
     syncOfflineQueue,
+    hasMoreMessages,
+    loadOlderMessages,
   } = useChat()
 
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null)
@@ -101,7 +105,7 @@ export default function ChatArea() {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at')
           .eq('id', activeConversation.partner.id)
           .single()
         if (data && !error) {
@@ -113,8 +117,6 @@ export default function ChatArea() {
     }
 
     fetchPartnerProfile()
-    const interval = setInterval(fetchPartnerProfile, 30 * 1000)
-    return () => clearInterval(interval)
   }, [activeConversation, supabase])
 
   // Input states
@@ -127,6 +129,7 @@ export default function ChatArea() {
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showStickerPicker, setShowStickerPicker] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
 
   // Context Bottom Sheet Menu State
   const [selectedMenuMessage, setSelectedMenuMessage] = useState<Message | null>(null)
@@ -172,25 +175,61 @@ export default function ChatArea() {
 
   // Track whether we've done the initial instant scroll for the current conversation
   const initialScrollDoneRef = useRef(false)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const previousScrollHeightRef = useRef<number>(0)
+  const isScrollLoadingRef = useRef(false)
 
   // Reset flag whenever conversation changes
   useEffect(() => {
     initialScrollDoneRef.current = false
+    lastMessageIdRef.current = null
   }, [activeConversation?.id])
 
-  // Scroll to bottom whenever messages change
-  useEffect(() => {
-    if (messages.length === 0) return
+  // Scroll to bottom whenever messages change (using useLayoutEffect to prevent visual jump/flicker)
+  useLayoutEffect(() => {
+    if (messages.length === 0) {
+      lastMessageIdRef.current = null
+      return
+    }
+
+    const container = chatContainerRef.current
+    const lastMsg = messages[messages.length - 1]
 
     if (!initialScrollDoneRef.current) {
       // First load: jump instantly to bottom with no animation
       initialScrollDoneRef.current = true
+      lastMessageIdRef.current = lastMsg.id
       messageEndRef.current?.scrollIntoView({ behavior: 'instant' })
-    } else {
-      // Subsequent messages (realtime): smooth scroll
+    } else if (lastMsg.id !== lastMessageIdRef.current) {
+      // New message arrived at the bottom
+      lastMessageIdRef.current = lastMsg.id
       messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    } else if (container && isScrollLoadingRef.current) {
+      // Older messages were prepended
+      isScrollLoadingRef.current = false
+      const newScrollHeight = container.scrollHeight
+      container.scrollTop = newScrollHeight - previousScrollHeightRef.current
     }
   }, [messages])
+
+  // Scroll handler to detect when user reaches the top to paginate messages
+  const handleScroll = useCallback(async (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget
+    
+    // Toggle show scroll to bottom button if scrolled up past 300px
+    const isScrolledUp = container.scrollHeight - container.scrollTop - container.clientHeight > 300
+    setShowScrollBottomBtn(isScrolledUp)
+
+    if (container.scrollTop < 50 && hasMoreMessages && !loadingMessages && !isScrollLoadingRef.current) {
+      isScrollLoadingRef.current = true
+      previousScrollHeightRef.current = container.scrollHeight
+      await loadOlderMessages()
+    }
+  }, [hasMoreMessages, loadingMessages, loadOlderMessages])
+
+  const handleScrollToBottom = () => {
+    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   // Handle outside click to close menus
   useEffect(() => {
@@ -964,8 +1003,14 @@ export default function ChatArea() {
         /* CONVERSATION ACTIVE: SCROLLABLE CHAT FEED & COMPOSER */
         <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto overflow-hidden bg-white border-x border-border shadow-xs">
           
-          {/* Scrollable messages container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" ref={chatContainerRef}>
+          {/* Messages view wrapper container */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            {/* Scrollable messages container */}
+            <div 
+              className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" 
+              ref={chatContainerRef}
+              onScroll={handleScroll}
+            >
             {loadingMessages ? (
               <div className="py-12 flex justify-center text-sm text-gray-400">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -1142,6 +1187,7 @@ export default function ChatArea() {
                               <img
                                 src={m.image_path}
                                 alt="GIF sticker"
+                                loading="lazy"
                                 className="max-w-[200px] max-h-48 object-contain rounded-xl cursor-pointer"
                               />
                             ) : m.message_type === 'sticker' && m.image_path ? (
@@ -1170,6 +1216,7 @@ export default function ChatArea() {
                                 <img
                                   src={m.image_path}
                                   alt="Sticker"
+                                  loading="lazy"
                                   className="w-20 h-20 object-contain select-none"
                                 />
                               )
@@ -1253,7 +1300,19 @@ export default function ChatArea() {
                 </div>
               </div>
             )}
-            <div ref={messageEndRef} />
+              <div ref={messageEndRef} />
+            </div>
+
+            {/* Scroll-to-bottom floating button */}
+            {showScrollBottomBtn && (
+              <button
+                type="button"
+                onClick={handleScrollToBottom}
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white hover:bg-gray-50 text-gray-650 hover:text-gray-900 border border-gray-200 shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 animate-in fade-in zoom-in-75 duration-200 z-30"
+              >
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           <div className="border-t border-border bg-white px-4 py-3 space-y-2 shrink-0">

@@ -10,6 +10,7 @@
     "mobile:build": "node scripts/mobile-build.js && npx cap sync"
   },
   "dependencies": {
+    "@capacitor-community/privacy-screen": "^8.0.0",
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.2.3",
     "@capacitor/clipboard": "^8.0.1",

@@ -57,9 +57,14 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
     }
 
     const tokenExists = typeof window !== 'undefined' && !!localStorage.getItem('private_space_token')
-    if (!tokenExists) {
-      setLoading(true) // Only show secure portal loading state if checking database without cached token
+    if (tokenExists) {
+      setHasPasscode(true)
+      setIsUnlocked(true)
+      setLoading(false)
+      return
     }
+
+    setLoading(true) // Only show secure portal loading state if checking database without cached token
     
     try {
       const reqHeaders = await getHeaders()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -20,7 +20,12 @@ export interface CalendarEvent {
 export function useCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  
+  const supabaseRef = useRef<any>(null)
+  if (!supabaseRef.current) {
+    supabaseRef.current = createClient()
+  }
+  const supabase = supabaseRef.current
   const { user } = useAuth()
   const { showToast } = useToast()
 
