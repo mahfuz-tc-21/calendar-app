@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS public.conversation_members (
   conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  history_cleared_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  is_deleted BOOLEAN DEFAULT false NOT NULL,
   UNIQUE(conversation_id, user_id)
 );
 

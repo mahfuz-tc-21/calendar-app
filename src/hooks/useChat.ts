@@ -79,11 +79,12 @@ export function useChat() {
     setLoadingConversations(true)
 
     try {
-      // Get all conversations where the user is a member
+      // Get all conversations where the user is a member and hasn't deleted them
       const { data: memberRows, error: memberErr } = await supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', user.id)
+        .eq('is_deleted', false)
 
       if (memberErr) throw memberErr
 
@@ -178,6 +179,13 @@ export function useChat() {
       )?.conversation_id
 
       if (commonId) {
+        // Reactivate conversation for the user if they had deleted it
+        await supabase
+          .from('conversation_members')
+          .update({ is_deleted: false })
+          .eq('conversation_id', commonId)
+          .eq('user_id', user.id)
+
         const existingConv: Conversation = {
           id: commonId,
           created_at: '',
@@ -249,10 +257,21 @@ export function useChat() {
   const fetchMessages = useCallback(async (convId: string) => {
     setLoadingMessages(true)
     try {
+      // Get the current user's membership details to find history_cleared_at
+      const { data: memberInfo } = await supabase
+        .from('conversation_members')
+        .select('history_cleared_at')
+        .eq('conversation_id', convId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const historyClearedAt = memberInfo?.history_cleared_at || new Date(0).toISOString()
+
       const { data: msgRows, error: msgErr } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', convId)
+        .gte('created_at', historyClearedAt)
         .order('created_at', { ascending: true })
 
       if (msgErr) throw msgErr
@@ -430,6 +449,13 @@ export function useChat() {
         .single()
 
       if (error) throw error
+
+      // Automatically unhide conversation for the recipient
+      await supabase
+        .from('conversation_members')
+        .update({ is_deleted: false })
+        .eq('conversation_id', activeConversation.id)
+        .neq('user_id', user.id)
       
       // Update local messages array optimistically
       setMessages((prev) => {
@@ -513,13 +539,18 @@ export function useChat() {
     }
   }
 
-  // 9. Delete conversation
+  // 9. Delete conversation (one-sided soft delete)
   const deleteConversation = useCallback(async (conversationId: string) => {
+    if (!user) return
     try {
       const { error } = await supabase
-        .from('conversations')
-        .delete()
-        .eq('id', conversationId)
+        .from('conversation_members')
+        .update({
+          is_deleted: true,
+          history_cleared_at: new Date().toISOString()
+        })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id)
 
       if (error) throw error
 
@@ -530,7 +561,7 @@ export function useChat() {
       console.error('Error deleting conversation:', err)
       showToast(err?.message || 'Failed to delete conversation', 'error')
     }
-  }, [supabase, showToast, setActiveConversation])
+  }, [supabase, showToast, user, setActiveConversation])
 
   // Fetch initial conversations list on mount and request Notification permission (including Capacitor support)
   useEffect(() => {
