@@ -59,23 +59,13 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
     setLoading(true) // Show secure portal loading state while checking database
     try {
       const reqHeaders = await getHeaders()
-      // 1. Check if passcode is configured
+      // Check passcode status and verify session in a single API call
       const checkRes = await fetch(getApiUrl('/api/private/check'), {
         headers: reqHeaders,
       })
       const checkData = await checkRes.json()
       setHasPasscode(!!checkData.exists)
-
-      // 2. Check if already unlocked (verified by cookie or header)
-      if (checkData.exists) {
-        const verifyRes = await fetch(getApiUrl('/api/private/verify-session'), {
-          headers: reqHeaders,
-        })
-        const verifyData = await verifyRes.json()
-        setIsUnlocked(!!verifyData.unlocked)
-      } else {
-        setIsUnlocked(false)
-      }
+      setIsUnlocked(!!checkData.unlocked)
     } catch (err) {
       console.error('Error checking private space status:', err)
     } finally {

@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Lock, LogOut, Calendar as CalendarIcon, Clock, Edit2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Lock, Calendar as CalendarIcon, Clock, Edit2 } from 'lucide-react'
 import { useCalendar, CalendarEvent } from '@/hooks/useCalendar'
-import { useAuth } from '@/context/AuthContext'
 import EventDialog from './EventDialog'
 
 const MONTH_NAMES = [
@@ -16,7 +15,6 @@ const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CalendarView() {
   const router = useRouter()
-  const { signOut, profile } = useAuth()
   const { events, loading, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar()
 
   // Calendar Date State
@@ -170,13 +168,6 @@ export default function CalendarView() {
         
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={signOut}
-            title="Logout"
-            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <LogOut className="w-4.5 h-4.5" />
-          </button>
         </div>
       </header>
 

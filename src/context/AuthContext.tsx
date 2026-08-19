@@ -57,13 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id)
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        setIsLoading(false)
+        if (currentUser) {
+          await fetchProfile(currentUser.id)
         }
       } catch (err) {
         console.error('Error fetching initial session:', err)
-      } finally {
         setIsLoading(false)
       }
     }
@@ -73,12 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
+      setIsLoading(false)
       if (currentUser) {
         await fetchProfile(currentUser.id)
       } else {
         setProfile(null)
       }
-      setIsLoading(false)
     })
 
     return () => {
