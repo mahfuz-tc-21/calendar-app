@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
@@ -162,12 +162,34 @@ export default function ChatArea() {
   const messageEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  const pressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const isTypingRef = useRef(false)
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Auto-scroll when new messages arrive
+  // useTransition: marks typing indicator broadcast as low-priority so input stays snappy
+  const [, startTransition] = useTransition()
+
+  // Track whether we've done the initial instant scroll for the current conversation
+  const initialScrollDoneRef = useRef(false)
+
+  // Reset flag whenever conversation changes
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    initialScrollDoneRef.current = false
+  }, [activeConversation?.id])
+
+  // Scroll to bottom whenever messages change
+  useEffect(() => {
+    if (messages.length === 0) return
+
+    if (!initialScrollDoneRef.current) {
+      // First load: jump instantly to bottom with no animation
+      initialScrollDoneRef.current = true
+      messageEndRef.current?.scrollIntoView({ behavior: 'instant' })
+    } else {
+      // Subsequent messages (realtime): smooth scroll
+      messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   // Handle outside click to close menus
@@ -238,6 +260,7 @@ export default function ChatArea() {
 
     if (Math.abs(dragOffset) > 50) {
       setReplyingTo(message)
+      textareaRef.current?.focus()
       if (typeof window !== 'undefined' && navigator.vibrate) {
         try {
           navigator.vibrate(15)
@@ -252,6 +275,7 @@ export default function ChatArea() {
   // Helper: Append selected emoji to message composer
   const handleSelectEmoji = (emoji: string) => {
     setInputText((prev) => prev + emoji)
+    textareaRef.current?.focus()
   }
 
   // Helper: Send selected GIF immediately
@@ -259,10 +283,12 @@ export default function ChatArea() {
     await sendMessage(null, 'gif', gifUrl, replyingTo?.id || null)
     setReplyingTo(null)
     setShowGifPicker(false)
+    textareaRef.current?.focus()
   }
 
   // Helper: Send selected Sticker immediately
   const handleSelectSticker = async (stickerId: string) => {
+    textareaRef.current?.focus()
     await sendMessage(null, 'sticker', stickerId, replyingTo?.id || null)
     setReplyingTo(null)
     setShowStickerPicker(false)
@@ -308,7 +334,7 @@ export default function ChatArea() {
           const response = await fetch(photo.webPath)
           const blob = await response.blob()
           const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-          
+
           return {
             id: tempId,
             blob,
@@ -321,6 +347,11 @@ export default function ChatArea() {
       )
 
       setAttachmentImages((prev) => [...prev, ...mapped])
+
+      // Start uploading immediately after selection
+      mapped.forEach((item) => {
+        uploadImageItem(item.id, item.blob, item.format)
+      })
     } catch (err) {
       console.error('Error selecting images from Android Gallery:', err)
     }
@@ -341,6 +372,7 @@ export default function ChatArea() {
       const response = await fetch(image.dataUrl)
       const blob = await response.blob()
       const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const format = image.format || 'jpeg'
 
       const mappedItem = {
         id: tempId,
@@ -348,19 +380,29 @@ export default function ChatArea() {
         preview: image.dataUrl,
         status: 'pending' as const,
         progress: 0,
-        format: image.format || 'jpeg',
+        format,
       }
 
       setAttachmentImages((prev) => [...prev, mappedItem])
+
+      // Start uploading immediately after capture
+      uploadImageItem(tempId, blob, format)
     } catch (err) {
       console.error('Error capturing image from Camera:', err)
     }
   }
 
   // Helper: Upload a single queued attachment image with simulated progress indicator
-  const uploadAttachmentImage = async (imgId: string) => {
+  // Returns the uploaded storage path on success, or null on failure
+  const uploadAttachmentImage = async (imgId: string): Promise<string | null> => {
     const item = attachmentImages.find((i) => i.id === imgId)
-    if (!item || !activeConversation) return
+    if (!item || !activeConversation) return null
+    return uploadImageItem(imgId, item.blob, item.format)
+  }
+
+  // Core upload helper — takes data directly to avoid stale state reads
+  const uploadImageItem = async (imgId: string, blob: Blob, format: string): Promise<string | null> => {
+    if (!activeConversation) return null
 
     setAttachmentImages((prev) =>
       prev.map((i) => (i.id === imgId ? { ...i, status: 'uploading', progress: 10 } : i))
@@ -368,7 +410,7 @@ export default function ChatArea() {
 
     try {
       const uniqueId = Math.random().toString(36).substring(2, 9)
-      const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${item.format}`
+      const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${format}`
 
       const progressInterval = setInterval(() => {
         setAttachmentImages((prev) =>
@@ -383,7 +425,7 @@ export default function ChatArea() {
 
       const { error: uploadError } = await supabase.storage
         .from('chat_images')
-        .upload(path, item.blob, { contentType: `image/${item.format}` })
+        .upload(path, blob, { contentType: `image/${format}` })
 
       clearInterval(progressInterval)
 
@@ -392,11 +434,13 @@ export default function ChatArea() {
       setAttachmentImages((prev) =>
         prev.map((i) => (i.id === imgId ? { ...i, status: 'success', progress: 100, path } : i))
       )
+      return path
     } catch (err) {
       console.error('Upload failed for image item:', imgId, err)
       setAttachmentImages((prev) =>
         prev.map((i) => (i.id === imgId ? { ...i, status: 'failed', progress: 0 } : i))
       )
+      return null
     }
   }
 
@@ -406,18 +450,27 @@ export default function ChatArea() {
   }
 
   // Helper: InputText change & typing indicator broadcast trigger
-  const handleInputChange = (text: string) => {
+  const handleInputChange = useCallback((text: string) => {
+    // Synchronous: update the displayed text immediately (no lag)
     setInputText(text.substring(0, 1000))
-    setLocalTypingStatus(true)
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
+    // Deferred (low-priority): broadcast typing status to socket
+    startTransition(() => {
+      if (!isTypingRef.current) {
+        isTypingRef.current = true
+        setLocalTypingStatus(true)
+      }
 
-    typingTimeoutRef.current = setTimeout(() => {
-      setLocalTypingStatus(false)
-    }, 2000)
-  }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        isTypingRef.current = false
+        setLocalTypingStatus(false)
+      }, 2000)
+    })
+  }, [setLocalTypingStatus])
 
   // File selection handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -536,7 +589,7 @@ export default function ChatArea() {
     if (isUploading) return
 
     // 1. Check for unsent/pending image attachments in queue
-    const hasPendingOrFailed = attachmentImages.some(
+    const pendingImages = attachmentImages.filter(
       (img) => img.status === 'pending' || img.status === 'failed'
     )
     const hasUploading = attachmentImages.some((img) => img.status === 'uploading')
@@ -546,23 +599,56 @@ export default function ChatArea() {
       return
     }
 
-    if (hasPendingOrFailed) {
-      // Trigger upload for all pending/failed attachment files
-      setIsUploading(true)
-      const toUpload = attachmentImages.filter(
-        (img) => img.status === 'pending' || img.status === 'failed'
-      )
-      
-      await Promise.all(toUpload.map((img) => uploadAttachmentImage(img.id)))
-      setIsUploading(false)
-      return // Allow user to review and click send again once uploads finish
-    }
-
-    // 2. Compile uploaded files and text content
-    const uploadedImages = attachmentImages.filter((img) => img.status === 'success')
     const textContent = inputText.trim()
 
+    // If there are pending images, upload them all now then send in one pass
+    if (pendingImages.length > 0) {
+      setIsUploading(true)
+      textareaRef.current?.focus()
+
+      const uploadResults = await Promise.all(
+        pendingImages.map((img) => uploadAttachmentImage(img.id))
+      )
+
+      // Gather all paths that uploaded successfully
+      const successPaths = uploadResults.filter((p): p is string => p !== null)
+
+      if (successPaths.length === 0 && !textContent && !selectedFile) {
+        setIsUploading(false)
+        return
+      }
+
+      // Send each image, attaching the text caption to the last one
+      try {
+        for (let i = 0; i < successPaths.length; i++) {
+          const caption = i === successPaths.length - 1 ? textContent || null : null
+          await sendMessage(caption, 'image', successPaths[i], replyingTo?.id || null)
+        }
+
+        setInputText('')
+        setAttachmentImages([])
+        setReplyingTo(null)
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        isTypingRef.current = false
+        setLocalTypingStatus(false)
+        setTimeout(() => textareaRef.current?.focus(), 50)
+      } catch (err: any) {
+        console.error('Error sending image messages:', err)
+        showToast('Failed to send message', 'error')
+      } finally {
+        setIsUploading(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+      return
+    }
+
+    // 2. Compile already-uploaded images and text content
+    const uploadedImages = attachmentImages.filter((img) => img.status === 'success')
+
     if (uploadedImages.length === 0 && !textContent && !selectedFile) return
+
+    // Focus synchronously now while we are still in the click event call stack
+    textareaRef.current?.focus()
 
     setIsUploading(true)
 
@@ -614,12 +700,18 @@ export default function ChatArea() {
         }
       }
 
-      // Clear composer states
+      // Clear composer states and typing indicator
       setInputText('')
       setSelectedFile(null)
       setImagePreview(null)
       setAttachmentImages([])
       setReplyingTo(null)
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      isTypingRef.current = false
+      setLocalTypingStatus(false)
     } catch (err: any) {
       console.error('Error during send:', err)
       showToast('Failed to send message', 'error')
@@ -632,12 +724,12 @@ export default function ChatArea() {
   }
 
   // Textarea keypress handler (Enter sends, Shift+Enter new line)
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSendSubmit()
     }
-  }
+  }, [handleSendSubmit])
 
   // Lock and exit chat space handler
   const handleLockExit = async () => {
@@ -646,7 +738,7 @@ export default function ChatArea() {
   }
 
   // Handle reaction toggle
-  const handleToggleReaction = async (messageId: string, emoji: string) => {
+  const handleToggleReaction = useCallback(async (messageId: string, emoji: string) => {
     const list = reactions[messageId] || []
     const myReaction = list.find((r) => r.user_id === user?.id && r.reaction === emoji)
 
@@ -655,10 +747,10 @@ export default function ChatArea() {
     } else {
       await addReaction(messageId, emoji)
     }
-  }
+  }, [reactions, user, removeReaction, addReaction])
 
   // Calculate emoji tallies for a message bubble
-  const getReactionSummaries = (messageId: string) => {
+  const getReactionSummaries = useCallback((messageId: string) => {
     const list = reactions[messageId] || []
     const summary: Record<string, { count: number; active: boolean }> = {}
 
@@ -677,7 +769,7 @@ export default function ChatArea() {
       count: summary[emoji].count,
       isActive: summary[emoji].active,
     }))
-  }
+  }, [reactions, user])
 
   // Scroll to original message from reply click
   const handleScrollToMessage = (messageId: string) => {
@@ -945,6 +1037,7 @@ export default function ChatArea() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setReplyingTo(m)
+                                  textareaRef.current?.focus()
                                 }}
                                 className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
                               >
@@ -1285,11 +1378,11 @@ export default function ChatArea() {
 
               {/* Textcomposer area */}
               <textarea
+                ref={textareaRef}
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Write a message..."
-                disabled={isUploading}
                 rows={1}
                 className="flex-1 px-3.5 py-2.5 border border-border bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 placeholder:text-gray-400 resize-none min-h-[44px] max-h-24 custom-scrollbar leading-snug"
               />
@@ -1297,6 +1390,10 @@ export default function ChatArea() {
               {/* Send Button */}
               <button
                 type="submit"
+                onMouseDown={(e) => {
+                  // Prevent the button from taking focus away from the input
+                  e.preventDefault()
+                }}
                 disabled={isUploading || (!inputText.trim() && attachmentImages.length === 0 && !selectedFile)}
                 className="p-2.5 rounded-xl bg-primary hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -1379,7 +1476,11 @@ export default function ChatArea() {
           message={selectedMenuMessage}
           currentUserId={user?.id || ''}
           onClose={() => setSelectedMenuMessage(null)}
-          onReply={() => { setReplyingTo(selectedMenuMessage); setSelectedMenuMessage(null); }}
+          onReply={() => {
+            setReplyingTo(selectedMenuMessage)
+            setSelectedMenuMessage(null)
+            textareaRef.current?.focus()
+          }}
           onCopy={() => { if (selectedMenuMessage.content) handleCopyMessage(selectedMenuMessage.content); setSelectedMenuMessage(null); }}
           onEdit={() => {
             if (selectedMenuMessage.message_type === 'text') {

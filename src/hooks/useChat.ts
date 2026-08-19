@@ -795,7 +795,6 @@ export function useChat() {
 
       if (error) throw error
 
-      showToast('Message deleted', 'success')
       return true
     } catch (err: any) {
       console.error('Error deleting message:', err)
