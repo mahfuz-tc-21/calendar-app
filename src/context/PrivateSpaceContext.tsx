@@ -44,9 +44,11 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
   const [hasPasscode, setHasPasscode] = useState(false)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
 
   const checkPasscodeStatus = useCallback(async () => {
+    if (authLoading) return // Wait for AuthContext to resolve the initial user session
+
     if (!user) {
       setHasPasscode(false)
       setIsUnlocked(false)
@@ -54,6 +56,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       return
     }
 
+    setLoading(true) // Show secure portal loading state while checking database
     try {
       const reqHeaders = await getHeaders()
       // 1. Check if passcode is configured
@@ -78,11 +81,11 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, authLoading])
 
   useEffect(() => {
     checkPasscodeStatus()
-  }, [checkPasscodeStatus, user])
+  }, [checkPasscodeStatus, user, authLoading])
 
   const unlock = async (passcode: string): Promise<boolean> => {
     try {
