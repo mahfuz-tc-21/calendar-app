@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { createHmac } from 'crypto'
 
 const HMAC_SECRET = process.env.NEXTAUTH_SECRET || 'aura_fallback_secret_for_signing_private_sessions'
@@ -29,7 +29,8 @@ export async function GET() {
     }
 
     const cookieStore = await cookies()
-    const token = cookieStore.get('private_space_token')?.value
+    const headersList = await headers()
+    const token = cookieStore.get('private_space_token')?.value || headersList.get('x-private-space-token')
 
     if (!token || !verifySessionToken(token, user.id)) {
       return NextResponse.json({ unlocked: false })

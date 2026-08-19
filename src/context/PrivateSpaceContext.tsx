@@ -4,6 +4,25 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useToast } from './ToastContext'
 import { useAuth } from './AuthContext'
 import { getApiUrl } from '@/utils/api'
+import { createClient } from '@/utils/supabase/client'
+
+async function getHeaders() {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`
+  }
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('private_space_token')
+    if (token) {
+      headers['x-private-space-token'] = token
+    }
+  }
+  return headers
+}
 
 interface PrivateSpaceContextType {
   isUnlocked: boolean
@@ -33,14 +52,19 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
     }
 
     try {
+      const reqHeaders = await getHeaders()
       // 1. Check if passcode is configured
-      const checkRes = await fetch(getApiUrl('/api/private/check'))
+      const checkRes = await fetch(getApiUrl('/api/private/check'), {
+        headers: reqHeaders,
+      })
       const checkData = await checkRes.json()
       setHasPasscode(!!checkData.exists)
 
-      // 2. Check if already unlocked (verified by cookie)
+      // 2. Check if already unlocked (verified by cookie or header)
       if (checkData.exists) {
-        const verifyRes = await fetch(getApiUrl('/api/private/verify-session'))
+        const verifyRes = await fetch(getApiUrl('/api/private/verify-session'), {
+          headers: reqHeaders,
+        })
         const verifyData = await verifyRes.json()
         setIsUnlocked(!!verifyData.unlocked)
       } else {
@@ -59,15 +83,19 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const unlock = async (passcode: string): Promise<boolean> => {
     try {
+      const reqHeaders = await getHeaders()
       const res = await fetch(getApiUrl('/api/private/unlock'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({ passcode }),
       })
 
       const data = await res.json()
 
       if (res.ok && data.success) {
+        if (data.token && typeof window !== 'undefined') {
+          localStorage.setItem('private_space_token', data.token)
+        }
         setIsUnlocked(true)
         showToast('Private space unlocked', 'success')
         return true
@@ -83,9 +111,10 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const setupPasscode = async (passcode: string): Promise<boolean> => {
     try {
+      const reqHeaders = await getHeaders()
       const res = await fetch(getApiUrl('/api/private/setup'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({ passcode }),
       })
 
@@ -108,10 +137,17 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
 
   const lock = async () => {
     try {
-      await fetch(getApiUrl('/api/private/lock'), { method: 'POST' })
+      const reqHeaders = await getHeaders()
+      await fetch(getApiUrl('/api/private/lock'), { 
+        method: 'POST',
+        headers: reqHeaders,
+      })
     } catch (err) {
       console.error('Error calling lock API:', err)
     } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('private_space_token')
+      }
       setIsUnlocked(false)
       showToast('Private space locked', 'info')
     }

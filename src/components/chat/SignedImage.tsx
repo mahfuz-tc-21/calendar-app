@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Loader2, ImageOff } from 'lucide-react'
 import { getApiUrl } from '@/utils/api'
+import { createClient } from '@/utils/supabase/client'
 
 interface SignedImageProps {
   path: string
@@ -23,7 +24,17 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
       try {
         setLoading(true)
         setError(false)
-        const res = await fetch(getApiUrl(`/api/private/sign-url?path=${encodeURIComponent(path)}`))
+
+        const headers: Record<string, string> = {}
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`
+        }
+
+        const res = await fetch(getApiUrl(`/api/private/sign-url?path=${encodeURIComponent(path)}`), {
+          headers,
+        })
         if (!res.ok) throw new Error('Failed to sign URL')
         const data = await res.json()
         if (active) {

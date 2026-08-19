@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         path: '/',
       })
 
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true, token })
     } else {
       // Failure: Increment rate limits
       const nextFailed = settings.failed_attempts + 1
