@@ -115,6 +115,12 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
         )}
       </div>
 
+      {/* GIPHY Attribution Footer */}
+      <div className="p-1 text-center bg-gray-50 border-t border-gray-100 shrink-0 flex items-center justify-center gap-1 select-none">
+        <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Powered by</span>
+        <span className="text-[10px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-yellow-400 to-green-400 tracking-tighter">GIPHY</span>
+      </div>
+
     </div>
   )
 }

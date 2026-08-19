@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -16,7 +16,7 @@ import StickerPicker from './StickerPicker'
 import MessageMenu from './MessageMenu'
 import ProfileModal from '../profile/ProfileModal'
 import { Clipboard } from '@capacitor/clipboard'
-import { Camera } from '@capacitor/camera'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '😡']
 
@@ -156,6 +156,7 @@ export default function ChatArea() {
   const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null)
   const [activeMenuType, setActiveMenuType] = useState<'reactions' | 'more' | null>(null)
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
+  const [showImageSourceSheet, setShowImageSourceSheet] = useState(false)
 
   // Refs
   const messageEndRef = useRef<HTMLDivElement>(null)
@@ -322,6 +323,37 @@ export default function ChatArea() {
       setAttachmentImages((prev) => [...prev, ...mapped])
     } catch (err) {
       console.error('Error selecting images from Android Gallery:', err)
+    }
+  }
+
+  // Helper: Native camera capture (Take Photo)
+  const handleCameraCapture = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 70,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      })
+
+      if (!image || !image.dataUrl) return
+
+      const response = await fetch(image.dataUrl)
+      const blob = await response.blob()
+      const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+
+      const mappedItem = {
+        id: tempId,
+        blob,
+        preview: image.dataUrl,
+        status: 'pending' as const,
+        progress: 0,
+        format: image.format || 'jpeg',
+      }
+
+      setAttachmentImages((prev) => [...prev, mappedItem])
+    } catch (err) {
+      console.error('Error capturing image from Camera:', err)
     }
   }
 
@@ -1224,7 +1256,7 @@ export default function ChatArea() {
               {/* Native Android Gallery Picker Button */}
               <button
                 type="button"
-                onClick={handleNativeGalleryPick}
+                onClick={() => setShowImageSourceSheet(true)}
                 disabled={isUploading}
                 className="p-2.5 rounded-xl border border-gray-250 bg-white hover:bg-gray-50 text-gray-600 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
                 title="Add Images"
@@ -1376,6 +1408,68 @@ export default function ChatArea() {
         <ProfileModal
           onClose={() => setShowProfileModal(false)}
         />
+      )}
+
+      {/* 7. IMAGE SOURCE SELECTION BOTTOM SHEET */}
+      {showImageSourceSheet && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 animate-in fade-in duration-200"
+          onClick={() => setShowImageSourceSheet(false)}
+        >
+          <div 
+            className="w-full bg-white rounded-t-[2.5rem] p-6 pb-8 space-y-5 animate-in slide-in-from-bottom duration-250 z-50 shadow-2xl max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Grab handle indicator */}
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-1" />
+            
+            <div className="text-center">
+              <h3 className="text-base font-bold text-gray-900 leading-snug">Select Image</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Take a new photo or browse your gallery</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              {/* Option: Camera */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImageSourceSheet(false)
+                  handleCameraCapture()
+                }}
+                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-gray-150 bg-gray-50/50 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer shrink-0"
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-primary flex items-center justify-center">
+                  <CameraIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-bold text-gray-800">Camera</span>
+              </button>
+
+              {/* Option: Gallery */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImageSourceSheet(false)
+                  handleNativeGalleryPick()
+                }}
+                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-gray-150 bg-gray-50/50 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer shrink-0"
+              >
+                <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-bold text-gray-800">Gallery</span>
+              </button>
+            </div>
+
+            {/* Cancel Button */}
+            <button
+              type="button"
+              onClick={() => setShowImageSourceSheet(false)}
+              className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors cursor-pointer mt-2 text-center"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
     </div>
