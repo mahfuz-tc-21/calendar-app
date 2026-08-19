@@ -97,6 +97,43 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
     checkPasscodeStatus()
   }, [checkPasscodeStatus, user, authLoading])
 
+  // Handle native screenshot and screen-recording blocking (FLAG_SECURE) inside Private Space
+  useEffect(() => {
+    const togglePrivacyScreen = async () => {
+      if (typeof window === 'undefined') return
+      const cap = (window as any).Capacitor
+      if (cap && cap.isPluginAvailable('PrivacyScreen')) {
+        try {
+          const { PrivacyScreen } = require('@capacitor-community/privacy-screen')
+          if (isUnlocked) {
+            await PrivacyScreen.enable()
+            console.log('Android Native Privacy Screen Enabled (screenshots/recordings blocked)')
+          } else {
+            await PrivacyScreen.disable()
+            console.log('Android Native Privacy Screen Disabled')
+          }
+        } catch (e) {
+          console.error('Failed to toggle native PrivacyScreen plugin:', e)
+        }
+      }
+    }
+
+    togglePrivacyScreen()
+
+    return () => {
+      // Restore normal screen state on unmount
+      if (typeof window !== 'undefined') {
+        const cap = (window as any).Capacitor
+        if (cap && cap.isPluginAvailable('PrivacyScreen')) {
+          try {
+            const { PrivacyScreen } = require('@capacitor-community/privacy-screen')
+            PrivacyScreen.disable()
+          } catch {}
+        }
+      }
+    }
+  }, [isUnlocked])
+
   const unlock = async (passcode: string): Promise<boolean> => {
     try {
       const reqHeaders = await getHeaders()

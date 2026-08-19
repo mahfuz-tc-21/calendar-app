@@ -140,6 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       sessionStorage.clear()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('private_space_token')
+      }
+      try {
+        await supabase.removeAllChannels()
+      } catch (err) {
+        console.error('Error removing channels on signout:', err)
+      }
       await supabase.auth.signOut()
     } catch (err) {
       console.error('Error during sign out:', err)

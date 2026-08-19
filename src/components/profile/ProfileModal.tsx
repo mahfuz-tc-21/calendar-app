@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, Camera as CameraIcon, Loader2, Save } from 'lucide-react'
+import { X, Camera as CameraIcon, Loader2, Save, LogOut } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -12,7 +12,7 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ onClose }: ProfileModalProps) {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, signOut } = useAuth()
   const { showToast } = useToast()
   
   const [displayName, setDisplayName] = useState('')
@@ -20,6 +20,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  const handleLogoutClick = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      onClose()
+      await signOut()
+    }
+  }
 
   const supabase = createClient()
 
@@ -195,26 +202,37 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2.5 pt-2">
+          <div className="flex flex-col gap-2.5 pt-2">
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 active:bg-gray-100 font-bold text-xs transition-colors cursor-pointer"
+              onClick={handleLogoutClick}
+              className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition-colors cursor-pointer border border-red-200 flex items-center justify-center gap-1.5 min-h-[44px]"
             >
-              Cancel
+              <LogOut className="w-4 h-4" />
+              <span>Log Out</span>
             </button>
-            <button
-              type="submit"
-              disabled={isSaving || isUploading || !username.trim()}
-              className="flex-1 py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>Save</span>
-            </button>
+
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 active:bg-gray-100 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving || isUploading || !username.trim()}
+                className="flex-1 py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold text-xs shadow-md cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>Save</span>
+              </button>
+            </div>
           </div>
 
         </form>
