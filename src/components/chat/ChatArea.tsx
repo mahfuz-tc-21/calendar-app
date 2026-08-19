@@ -212,6 +212,16 @@ export default function ChatArea() {
     }
   }, [messages])
 
+  // Scroll to bottom when partner starts typing
+  useEffect(() => {
+    if (partnerIsTyping) {
+      const timer = setTimeout(() => {
+        messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [partnerIsTyping])
+
   // Scroll handler to detect when user reaches the top to paginate messages
   const handleScroll = useCallback(async (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget
@@ -493,6 +503,9 @@ export default function ChatArea() {
     // Synchronous: update the displayed text immediately (no lag)
     setInputText(text.substring(0, 1000))
 
+    // Smooth scroll to bottom on keypress to keep viewport locked
+    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+
     // Deferred (low-priority): broadcast typing status to socket
     startTransition(() => {
       if (!isTypingRef.current) {
@@ -689,7 +702,29 @@ export default function ChatArea() {
     // Focus synchronously now while we are still in the click event call stack
     textareaRef.current?.focus()
 
-    setIsUploading(true)
+    // Save states to local variables before clearing UI state instantly
+    const savedTextContent = textContent
+    const savedUploadedImages = [...uploadedImages]
+    const savedSelectedFile = selectedFile
+    const savedReplyingTo = replyingTo
+
+    // Clear composer states and typing indicator instantly for a snappy send response!
+    setInputText('')
+    setSelectedFile(null)
+    setImagePreview(null)
+    setAttachmentImages([])
+    setReplyingTo(null)
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    isTypingRef.current = false
+    setLocalTypingStatus(false)
+
+    // Set uploading state only if we actually need to upload a legacy selectedFile
+    if (savedSelectedFile) {
+      setIsUploading(true)
+    }
 
     try {
       // Check network status
@@ -704,53 +739,40 @@ export default function ChatArea() {
 
       if (!isConnected) {
         // If offline and we have images, queue each image with local path details!
-        if (attachmentImages.length > 0) {
-          for (let i = 0; i < attachmentImages.length; i++) {
-            const img = attachmentImages[i]
-            const caption = i === attachmentImages.length - 1 ? textContent : null
-            await sendMessage(caption, 'image', null, replyingTo?.id || null, img.preview, img.format)
+        if (savedUploadedImages.length > 0) {
+          for (let i = 0; i < savedUploadedImages.length; i++) {
+            const img = savedUploadedImages[i]
+            const caption = i === savedUploadedImages.length - 1 ? savedTextContent : null
+            await sendMessage(caption, 'image', null, savedReplyingTo?.id || null, img.preview, img.format)
           }
-        } else if (textContent) {
-          await sendMessage(textContent, 'text', null, replyingTo?.id || null)
+        } else if (savedTextContent) {
+          await sendMessage(savedTextContent, 'text', null, savedReplyingTo?.id || null)
         }
       } else {
         // Normal online flow: send multiple images as separate messages
-        if (uploadedImages.length > 0) {
-          for (let i = 0; i < uploadedImages.length; i++) {
-            const img = uploadedImages[i]
-            const caption = i === uploadedImages.length - 1 ? textContent : null
-            await sendMessage(caption, 'image', img.path, replyingTo?.id || null)
+        if (savedUploadedImages.length > 0) {
+          for (let i = 0; i < savedUploadedImages.length; i++) {
+            const img = savedUploadedImages[i]
+            const caption = i === savedUploadedImages.length - 1 ? savedTextContent : null
+            await sendMessage(caption, 'image', img.path, savedReplyingTo?.id || null)
           }
-        } else if (selectedFile && activeConversation) {
+        } else if (savedSelectedFile && activeConversation) {
           // Legacy image selection fallback upload
-          const fileExt = selectedFile.name.split('.').pop()
+          const fileExt = savedSelectedFile.name.split('.').pop()
           const uniqueId = Math.random().toString(36).substring(2, 9)
           const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${fileExt}`
 
           const { error: uploadError } = await supabase.storage
             .from('chat_images')
-            .upload(path, selectedFile)
+            .upload(path, savedSelectedFile)
 
           if (uploadError) throw uploadError
-          await sendMessage(textContent || null, 'image', path, replyingTo?.id || null)
-        } else if (textContent) {
+          await sendMessage(savedTextContent || null, 'image', path, savedReplyingTo?.id || null)
+        } else if (savedTextContent) {
           // Standard text message send
-          await sendMessage(textContent, 'text', null, replyingTo?.id || null)
+          await sendMessage(savedTextContent, 'text', null, savedReplyingTo?.id || null)
         }
       }
-
-      // Clear composer states and typing indicator
-      setInputText('')
-      setSelectedFile(null)
-      setImagePreview(null)
-      setAttachmentImages([])
-      setReplyingTo(null)
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-      isTypingRef.current = false
-      setLocalTypingStatus(false)
     } catch (err: any) {
       console.error('Error during send:', err)
       showToast('Failed to send message', 'error')
@@ -1012,8 +1034,19 @@ export default function ChatArea() {
               onScroll={handleScroll}
             >
             {loadingMessages ? (
-              <div className="py-12 flex justify-center text-sm text-gray-400">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <div className="space-y-6 animate-pulse py-2">
+                <div className="flex flex-col items-start max-w-[70%] space-y-1.5">
+                  <div className="h-9 w-32 bg-gray-100 rounded-2xl rounded-tl-none border border-gray-150" />
+                  <div className="h-2.5 w-12 bg-gray-200 rounded-full ml-1" />
+                </div>
+                <div className="flex flex-col items-end max-w-[70%] ml-auto space-y-1.5">
+                  <div className="h-9 w-44 bg-blue-50 rounded-2xl rounded-tr-none border border-blue-100" />
+                  <div className="h-2.5 w-12 bg-gray-200 rounded-full mr-1" />
+                </div>
+                <div className="flex flex-col items-start max-w-[70%] space-y-1.5">
+                  <div className="h-9 w-24 bg-gray-100 rounded-2xl rounded-tl-none border border-gray-150" />
+                  <div className="h-2.5 w-12 bg-gray-200 rounded-full ml-1" />
+                </div>
               </div>
             ) : messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 space-y-2">
@@ -1441,6 +1474,12 @@ export default function ChatArea() {
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  // Delayed scroll to allow mobile keyboard to open first
+                  setTimeout(() => {
+                    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                  }, 150)
+                }}
                 placeholder="Write a message..."
                 rows={1}
                 className="flex-1 px-3.5 py-2.5 border border-border bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 placeholder:text-gray-400 resize-none min-h-[44px] max-h-24 custom-scrollbar leading-snug"
@@ -1456,11 +1495,7 @@ export default function ChatArea() {
                 disabled={isUploading || (!inputText.trim() && attachmentImages.length === 0 && !selectedFile)}
                 className="p-2.5 rounded-xl bg-primary hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isUploading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
+                <Send className="w-5 h-5" />
               </button>
             </form>
 
