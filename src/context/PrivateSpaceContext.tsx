@@ -15,6 +15,9 @@ async function getHeaders() {
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`
   }
+  if (session?.refresh_token) {
+    headers['x-refresh-token'] = session.refresh_token
+  }
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('private_space_token')
     if (token) {

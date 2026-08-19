@@ -32,10 +32,17 @@ export async function createClient() {
   try {
     const headersList = await headers()
     const authHeader = headersList.get('authorization')
+    const refreshToken = headersList.get('x-refresh-token')
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
-      if (token) {
-        await client.auth.setSession({ access_token: token, refresh_token: '' })
+      if (token && refreshToken) {
+        await client.auth.setSession({ access_token: token, refresh_token: refreshToken })
+      } else if (token) {
+        // Fallback: Intercept getUser to verify the JWT if refresh token is missing
+        const originalGetUser = client.auth.getUser.bind(client.auth)
+        client.auth.getUser = async (jwt?: string) => {
+          return originalGetUser(jwt || token)
+        }
       }
     }
   } catch (err) {

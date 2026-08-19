@@ -31,6 +31,9 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
         if (session?.access_token) {
           headers['Authorization'] = `Bearer ${session.access_token}`
         }
+        if (session?.refresh_token) {
+          headers['x-refresh-token'] = session.refresh_token
+        }
 
         const res = await fetch(getApiUrl(`/api/private/sign-url?path=${encodeURIComponent(path)}`), {
           headers,
