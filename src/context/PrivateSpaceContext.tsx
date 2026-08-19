@@ -157,7 +157,6 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
         localStorage.removeItem('private_space_token')
       }
       setIsUnlocked(false)
-      showToast('Private space locked', 'info')
     }
   }
 
