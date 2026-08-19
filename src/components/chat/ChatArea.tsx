@@ -7,8 +7,16 @@ import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
 import { usePrivateSpace } from '@/context/PrivateSpaceContext'
+import { useToast } from '@/context/ToastContext'
 import { createClient } from '@/utils/supabase/client'
 import SignedImage from './SignedImage'
+import EmojiPicker from './EmojiPicker'
+import GifPicker from './GifPicker'
+import StickerPicker from './StickerPicker'
+import MessageMenu from './MessageMenu'
+import ProfileModal from '../profile/ProfileModal'
+import { Clipboard } from '@capacitor/clipboard'
+import { Camera } from '@capacitor/camera'
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '😡']
 
@@ -46,8 +54,9 @@ function formatLastSeen(lastSeenStr: string | null | undefined) {
 
 export default function ChatArea() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { lock } = usePrivateSpace()
+  const { showToast } = useToast()
   const {
     conversations,
     activeConversation,
@@ -62,6 +71,11 @@ export default function ChatArea() {
     addReaction,
     removeReaction,
     deleteConversation,
+    editMessage,
+    offlineQueue,
+    partnerIsTyping,
+    setLocalTypingStatus,
+    syncOfflineQueue,
   } = useChat()
 
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null)
@@ -108,7 +122,31 @@ export default function ChatArea() {
   const [partnerUsername, setPartnerUsername] = useState('')
   const [isStartingChat, setIsStartingChat] = useState(false)
 
-  // Image states
+  // Picker & Modal Toggles
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showGifPicker, setShowGifPicker] = useState(false)
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+  // Context Bottom Sheet Menu State
+  const [selectedMenuMessage, setSelectedMenuMessage] = useState<Message | null>(null)
+
+  // Inline Editing States
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editInputText, setEditInputText] = useState('')
+
+  // Multi-image upload attachments queue state
+  const [attachmentImages, setAttachmentImages] = useState<Array<{
+    id: string
+    blob: Blob
+    preview: string
+    status: 'pending' | 'uploading' | 'success' | 'failed'
+    progress: number
+    format: string
+    path?: string
+  }>>([])
+
+  // Image states (legacy compatibility)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -123,6 +161,8 @@ export default function ChatArea() {
   const messageEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
@@ -139,15 +179,32 @@ export default function ChatArea() {
     return () => document.removeEventListener('click', handleOutsideClick)
   }, [])
 
-  // Touch / Swipe to Reply Handlers
+  // Combined Touch/Swipe to Reply & Long Press Handlers
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const [dragOffset, setDragOffset] = useState<number>(0)
   const [draggingMessageId, setDraggingMessageId] = useState<string | null>(null)
 
-  const handleTouchStart = (e: React.TouchEvent, messageId: string) => {
+  const handleTouchStart = (e: React.TouchEvent, msg: Message) => {
     setTouchStartX(e.touches[0].clientX)
-    setDraggingMessageId(messageId)
+    setDraggingMessageId(msg.id)
     setDragOffset(0)
+
+    // Clear previous timer if any
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+    }
+
+    // Start 600ms Android-style long-press timer
+    pressTimerRef.current = setTimeout(() => {
+      setSelectedMenuMessage(msg)
+      setDraggingMessageId(null) // Cancel swipe drag if long-press is active
+      setDragOffset(0)
+      if (typeof window !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(30)
+        } catch {}
+      }
+    }, 600)
   }
 
   const handleTouchMove = (e: React.TouchEvent, isOwn: boolean) => {
@@ -155,13 +212,17 @@ export default function ChatArea() {
     const currentX = e.touches[0].clientX
     const diffX = currentX - touchStartX
 
+    // If they drag/scroll more than 15px, cancel the long press timer!
+    if (Math.abs(diffX) > 15 && pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+
     if (isOwn) {
-      // Swiping left (negative X)
       if (diffX < 0) {
         setDragOffset(Math.max(-80, diffX))
       }
     } else {
-      // Swiping right (positive X)
       if (diffX > 0) {
         setDragOffset(Math.min(80, diffX))
       }
@@ -169,6 +230,11 @@ export default function ChatArea() {
   }
 
   const handleTouchEnd = (message: Message) => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+
     if (Math.abs(dragOffset) > 50) {
       setReplyingTo(message)
       if (typeof window !== 'undefined' && navigator.vibrate) {
@@ -180,6 +246,145 @@ export default function ChatArea() {
     setTouchStartX(null)
     setDraggingMessageId(null)
     setDragOffset(0)
+  }
+
+  // Helper: Append selected emoji to message composer
+  const handleSelectEmoji = (emoji: string) => {
+    setInputText((prev) => prev + emoji)
+  }
+
+  // Helper: Send selected GIF immediately
+  const handleSelectGif = async (gifUrl: string) => {
+    await sendMessage(null, 'gif', gifUrl, replyingTo?.id || null)
+    setReplyingTo(null)
+    setShowGifPicker(false)
+  }
+
+  // Helper: Send selected Sticker immediately
+  const handleSelectSticker = async (stickerId: string) => {
+    await sendMessage(null, 'sticker', stickerId, replyingTo?.id || null)
+    setReplyingTo(null)
+    setShowStickerPicker(false)
+  }
+
+  // Helper: Copy text to Native Clipboard
+  const handleCopyMessage = async (text: string) => {
+    try {
+      await Clipboard.write({ string: text })
+      showToast('Text copied to clipboard', 'success')
+    } catch (e) {
+      // Fallback
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text)
+        showToast('Text copied to clipboard', 'success')
+      }
+    }
+  }
+
+  // Helper: Save edited message
+  const handleSaveEdit = async (msgId: string) => {
+    const trimmed = editInputText.trim()
+    if (!trimmed) return
+    const success = await editMessage(msgId, trimmed)
+    if (success) {
+      setEditingMessageId(null)
+      setEditInputText('')
+    }
+  }
+
+  // Helper: Native picking of multiple images from Android Gallery
+  const handleNativeGalleryPick = async () => {
+    try {
+      const images = await Camera.pickImages({
+        quality: 70, // Natively compress photo quality to 70%
+        limit: 0, // No selection count limit
+      })
+
+      if (!images || images.photos.length === 0) return
+
+      const mapped = await Promise.all(
+        images.photos.map(async (photo) => {
+          const response = await fetch(photo.webPath)
+          const blob = await response.blob()
+          const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+          
+          return {
+            id: tempId,
+            blob,
+            preview: photo.webPath,
+            status: 'pending' as const,
+            progress: 0,
+            format: photo.format || 'jpeg',
+          }
+        })
+      )
+
+      setAttachmentImages((prev) => [...prev, ...mapped])
+    } catch (err) {
+      console.error('Error selecting images from Android Gallery:', err)
+    }
+  }
+
+  // Helper: Upload a single queued attachment image with simulated progress indicator
+  const uploadAttachmentImage = async (imgId: string) => {
+    const item = attachmentImages.find((i) => i.id === imgId)
+    if (!item || !activeConversation) return
+
+    setAttachmentImages((prev) =>
+      prev.map((i) => (i.id === imgId ? { ...i, status: 'uploading', progress: 10 } : i))
+    )
+
+    try {
+      const uniqueId = Math.random().toString(36).substring(2, 9)
+      const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${item.format}`
+
+      const progressInterval = setInterval(() => {
+        setAttachmentImages((prev) =>
+          prev.map((i) => {
+            if (i.id === imgId && i.status === 'uploading' && i.progress < 90) {
+              return { ...i, progress: i.progress + 15 }
+            }
+            return i
+          })
+        )
+      }, 200)
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat_images')
+        .upload(path, item.blob, { contentType: `image/${item.format}` })
+
+      clearInterval(progressInterval)
+
+      if (uploadError) throw uploadError
+
+      setAttachmentImages((prev) =>
+        prev.map((i) => (i.id === imgId ? { ...i, status: 'success', progress: 100, path } : i))
+      )
+    } catch (err) {
+      console.error('Upload failed for image item:', imgId, err)
+      setAttachmentImages((prev) =>
+        prev.map((i) => (i.id === imgId ? { ...i, status: 'failed', progress: 0 } : i))
+      )
+    }
+  }
+
+  // Helper: Remove an image attachment from queue
+  const handleCancelAttachment = (imgId: string) => {
+    setAttachmentImages((prev) => prev.filter((i) => i.id !== imgId))
+  }
+
+  // Helper: InputText change & typing indicator broadcast trigger
+  const handleInputChange = (text: string) => {
+    setInputText(text.substring(0, 1000))
+    setLocalTypingStatus(true)
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      setLocalTypingStatus(false)
+    }, 2000)
   }
 
   // File selection handler
@@ -293,48 +498,104 @@ export default function ChatArea() {
     }
   }
 
-  // Send message composer handler
+  // Send message composer handler (supports multi-image upload & queueing)
   const handleSendSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (isUploading) return
-    if (!inputText.trim() && !selectedFile) return
 
-    let imagePath: string | null = null
+    // 1. Check for unsent/pending image attachments in queue
+    const hasPendingOrFailed = attachmentImages.some(
+      (img) => img.status === 'pending' || img.status === 'failed'
+    )
+    const hasUploading = attachmentImages.some((img) => img.status === 'uploading')
 
-    if (selectedFile && activeConversation) {
-      setIsUploading(true)
-      try {
-        const fileExt = selectedFile.name.split('.').pop()
-        const uniqueId = Math.random().toString(36).substring(2, 9)
-        const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${fileExt}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('chat_images')
-          .upload(path, selectedFile)
-
-        if (uploadError) throw uploadError
-        imagePath = path
-      } catch (err: any) {
-        console.error('Error uploading image:', err)
-        alert('Failed to upload image. Please try again.')
-        setIsUploading(false)
-        return
-      }
+    if (hasUploading) {
+      showToast('Please wait for image uploads to finish', 'error')
+      return
     }
 
-    const type = imagePath ? 'image' : 'text'
-    const content = inputText.trim() || null
+    if (hasPendingOrFailed) {
+      // Trigger upload for all pending/failed attachment files
+      setIsUploading(true)
+      const toUpload = attachmentImages.filter(
+        (img) => img.status === 'pending' || img.status === 'failed'
+      )
+      
+      await Promise.all(toUpload.map((img) => uploadAttachmentImage(img.id)))
+      setIsUploading(false)
+      return // Allow user to review and click send again once uploads finish
+    }
 
-    await sendMessage(content, type, imagePath, replyingTo?.id || null)
+    // 2. Compile uploaded files and text content
+    const uploadedImages = attachmentImages.filter((img) => img.status === 'success')
+    const textContent = inputText.trim()
 
-    // Clear composer states
-    setInputText('')
-    setSelectedFile(null)
-    setImagePreview(null)
-    setReplyingTo(null)
-    setIsUploading(false)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    if (uploadedImages.length === 0 && !textContent && !selectedFile) return
+
+    setIsUploading(true)
+
+    try {
+      // Check network status
+      let isConnected = true
+      try {
+        const { Network } = require('@capacitor/network')
+        const netStatus = await Network.getStatus()
+        isConnected = netStatus.connected
+      } catch (e) {
+        isConnected = typeof navigator !== 'undefined' ? navigator.onLine : true
+      }
+
+      if (!isConnected) {
+        // If offline and we have images, queue each image with local path details!
+        if (attachmentImages.length > 0) {
+          for (let i = 0; i < attachmentImages.length; i++) {
+            const img = attachmentImages[i]
+            const caption = i === attachmentImages.length - 1 ? textContent : null
+            await sendMessage(caption, 'image', null, replyingTo?.id || null, img.preview, img.format)
+          }
+        } else if (textContent) {
+          await sendMessage(textContent, 'text', null, replyingTo?.id || null)
+        }
+      } else {
+        // Normal online flow: send multiple images as separate messages
+        if (uploadedImages.length > 0) {
+          for (let i = 0; i < uploadedImages.length; i++) {
+            const img = uploadedImages[i]
+            const caption = i === uploadedImages.length - 1 ? textContent : null
+            await sendMessage(caption, 'image', img.path, replyingTo?.id || null)
+          }
+        } else if (selectedFile && activeConversation) {
+          // Legacy image selection fallback upload
+          const fileExt = selectedFile.name.split('.').pop()
+          const uniqueId = Math.random().toString(36).substring(2, 9)
+          const path = `${activeConversation.id}/${Date.now()}_${uniqueId}.${fileExt}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('chat_images')
+            .upload(path, selectedFile)
+
+          if (uploadError) throw uploadError
+          await sendMessage(textContent || null, 'image', path, replyingTo?.id || null)
+        } else if (textContent) {
+          // Standard text message send
+          await sendMessage(textContent, 'text', null, replyingTo?.id || null)
+        }
+      }
+
+      // Clear composer states
+      setInputText('')
+      setSelectedFile(null)
+      setImagePreview(null)
+      setAttachmentImages([])
+      setReplyingTo(null)
+    } catch (err: any) {
+      console.error('Error during send:', err)
+      showToast('Failed to send message', 'error')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -421,8 +682,12 @@ export default function ChatArea() {
 
           {activeConversation ? (
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-blue-100 text-primary font-bold flex items-center justify-center shrink-0 uppercase">
-                {((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)}
+              <div className="w-9 h-9 rounded-full bg-blue-100 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
+                {(partnerProfile || activeConversation.partner).avatar_url ? (
+                  <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
+                ) : (
+                  ((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)
+                )}
               </div>
               <div className="flex flex-col">
                 <span className="font-semibold text-sm text-gray-900 leading-tight">
@@ -455,6 +720,21 @@ export default function ChatArea() {
               className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-gray-500 hover:text-red-600 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <Trash2 className="w-4.5 h-4.5" />
+            </button>
+          )}
+          {!activeConversation && (
+            <button
+              onClick={() => setShowProfileModal(true)}
+              title="Edit Profile"
+              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <div className="w-5.5 h-5.5 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center font-bold text-[10px] text-gray-500 uppercase select-none">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  (profile?.display_name || profile?.username || 'U').substring(0, 1)
+                )}
+              </div>
             </button>
           )}
           <button
@@ -497,8 +777,12 @@ export default function ChatArea() {
                     onClick={() => setActiveConversation(conv)}
                     className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 text-left transition-colors cursor-pointer"
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-50 text-primary font-bold flex items-center justify-center shrink-0 uppercase">
-                      {conv.partner.display_name?.substring(0, 2) || conv.partner.username.substring(0, 2)}
+                    <div className="w-10 h-10 rounded-full bg-blue-50 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
+                      {conv.partner.avatar_url ? (
+                        <img src={conv.partner.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        (conv.partner.display_name || conv.partner.username).substring(0, 2)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-sm text-gray-900 truncate">
@@ -508,6 +792,11 @@ export default function ChatArea() {
                         @{conv.partner.username}
                       </p>
                     </div>
+                    {conv.unreadCount && conv.unreadCount > 0 ? (
+                      <div className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0 animate-pulse">
+                        {conv.unreadCount}
+                      </div>
+                    ) : null}
                   </button>
                 ))
               )}
@@ -638,15 +927,21 @@ export default function ChatArea() {
                               transform: draggingMessageId === m.id ? `translateX(${dragOffset}px)` : 'none',
                               transition: draggingMessageId === m.id ? 'none' : 'transform 0.2s ease-out'
                             }}
-                            onTouchStart={(e) => !isDeleted && handleTouchStart(e, m.id)}
+                            onTouchStart={(e) => !isDeleted && handleTouchStart(e, m)}
                             onTouchMove={(e) => !isDeleted && handleTouchMove(e, isOwn)}
                             onTouchEnd={() => !isDeleted && handleTouchEnd(m)}
-                            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed touch-pan-y ${
+                            onContextMenu={(e) => {
+                              e.preventDefault()
+                              if (!isDeleted) setSelectedMenuMessage(m)
+                            }}
+                            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed touch-pan-y transition-all ${
                               isDeleted
                                 ? 'bg-gray-100 text-gray-400 italic border border-gray-150'
-                                : isOwn
-                                  ? 'bg-primary text-white font-medium rounded-tr-none'
-                                  : 'bg-gray-100 text-gray-800 font-medium rounded-tl-none border border-gray-150'
+                                : (m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content))
+                                  ? 'bg-transparent p-0 shadow-none border-none'
+                                  : isOwn
+                                    ? 'bg-primary text-white font-medium rounded-tr-none'
+                                    : 'bg-gray-100 text-gray-800 font-medium rounded-tl-none border border-gray-150'
                             }`}
                           >
                             {/* Inner Reply Card (nested inside bubble) */}
@@ -670,28 +965,100 @@ export default function ChatArea() {
 
                             {isDeleted ? (
                               'This message was deleted.'
-                            ) : m.message_type === 'image' && m.image_path ? (
-                              <div className="space-y-1.5 max-w-[240px]">
-                                <SignedImage
-                                  path={m.image_path}
-                                  alt="Sent image"
-                                  onClick={() => m.image_path && setPreviewImageSrc(m.image_path)}
-                                  className="w-full max-h-48"
+                            ) : editingMessageId === m.id ? (
+                              <div className="flex flex-col gap-2 min-w-[200px] text-gray-800 py-1">
+                                <textarea
+                                  value={editInputText}
+                                  onChange={(e) => setEditInputText(e.target.value)}
+                                  className="w-full p-2 text-xs bg-white text-gray-950 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                                  rows={2}
                                 />
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingMessageId(null)}
+                                    className="px-2.5 py-1 text-[10px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer min-h-[30px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEdit(m.id)}
+                                    className="px-2.5 py-1 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 rounded-md cursor-pointer min-h-[30px]"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : m.message_type === 'image' ? (
+                              <div className="space-y-1.5 max-w-[240px]">
+                                {m.image_path ? (
+                                  <SignedImage
+                                    path={m.image_path}
+                                    alt="Sent image"
+                                    onClick={() => m.image_path && setPreviewImageSrc(m.image_path)}
+                                    className="w-full max-h-48"
+                                  />
+                                ) : m.localImageUri ? (
+                                  <img
+                                    src={m.localImageUri}
+                                    alt="Local preview"
+                                    className="w-full max-h-48 rounded-lg object-cover cursor-pointer"
+                                    onClick={() => setPreviewImageSrc(m.localImageUri || null)}
+                                  />
+                                ) : null}
                                 {m.content && (
-                                  <p className="text-sm pt-0.5 leading-snug break-words">
+                                  <p className={`text-sm pt-0.5 leading-snug break-words ${isOwn ? 'text-white' : 'text-gray-800'}`}>
                                     {m.content}
                                   </p>
                                 )}
                               </div>
+                            ) : m.message_type === 'gif' && m.image_path ? (
+                              <img
+                                src={m.image_path}
+                                alt="GIF sticker"
+                                className="max-w-[200px] max-h-48 object-contain rounded-xl cursor-pointer"
+                              />
+                            ) : m.message_type === 'sticker' && m.image_path ? (
+                              m.image_path.startsWith('vector_sticker_') ? (
+                                <div className="w-20 h-20 select-none">
+                                  {m.image_path === 'vector_sticker_heart' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#ff4d4f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                  )}
+                                  {m.image_path === 'vector_sticker_star' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#ffcd3c"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                  )}
+                                  {m.image_path === 'vector_sticker_fire' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#ff7875"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8c0-5.38-4.5-13.33-4.5-13.33zM12 19c-2.21 0-4-1.79-4-4 0-1.74 1.02-3.24 2.5-3.92.54-.25 1.15-.31 1.72-.1.97.36 1.78 1.17 1.78 2.02 0 .85-.79 1.7-1.5 2-.42.18-.5.7-.22 1 .28.3.7.38 1.08.2.92-.44 1.64-1.29 1.64-2.2 0-2.21-1.79-4-4-4s-4 1.79-4 4 1.79 4 4 4z"/></svg>
+                                  )}
+                                  {m.image_path === 'vector_sticker_thumbs' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#1890ff"><path d="M1 21h4V9H1v12zm22-10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+                                  )}
+                                  {m.image_path === 'vector_sticker_rocket' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#9254de"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5 1.5.67 1.5 1.5zm0-4.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V8c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v4z"/></svg>
+                                  )}
+                                  {m.image_path === 'vector_sticker_party' && (
+                                    <svg className="w-20 h-20 filter drop-shadow-md" viewBox="0 0 24 24" fill="#ff85c0"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                                  )}
+                                </div>
+                              ) : (
+                                <img
+                                  src={m.image_path}
+                                  alt="Sticker"
+                                  className="w-20 h-20 object-contain select-none"
+                                />
+                              )
                             ) : (
                               <p className="whitespace-pre-wrap break-words">{m.content}</p>
                             )}
 
                             {/* Timestamp & Read Receipts */}
                             <div className={`text-[9px] mt-1 text-right shrink-0 select-none flex items-center justify-end gap-0.5 ${
-                              isOwn ? 'text-blue-200' : 'text-gray-400'
+                              isOwn && !(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content))
+                                ? 'text-blue-200' 
+                                : 'text-gray-400'
                             }`}>
+                              {m.edited_at && <span className="text-[8px] opacity-75 mr-1 font-semibold">(edited)</span>}
                               <span>
                                 {new Date(m.created_at).toLocaleTimeString('en-US', {
                                   hour: '2-digit',
@@ -700,10 +1067,14 @@ export default function ChatArea() {
                                 })}
                               </span>
                               {isOwn && !isDeleted && (
-                                m.read_at ? (
-                                  <CheckCheck className="w-3.5 h-3.5 text-blue-100" />
+                                m.status === 'pending' ? (
+                                  <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
+                                ) : m.read_at ? (
+                                  <CheckCheck className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-primary' : 'text-blue-100'}`} />
+                                ) : m.delivered_at ? (
+                                  <CheckCheck className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-gray-400' : 'text-blue-200/50'}`} />
                                 ) : (
-                                  <Check className="w-3.5 h-3.5 text-blue-200/60" />
+                                  <Check className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-gray-400/70' : 'text-blue-200/40'}`} />
                                 )
                               )}
                             </div>
@@ -737,11 +1108,79 @@ export default function ChatArea() {
                 </div>
               ))
             )}
+            {/* Realtime Typing Indicator bubble */}
+            {partnerIsTyping && (
+              <div className="flex items-center gap-2 mr-auto ml-1 animate-pulse mb-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden text-[10px]">
+                  {(partnerProfile || activeConversation.partner).avatar_url ? (
+                    <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
+                  ) : (
+                    ((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)
+                  )}
+                </div>
+                <div className="bg-gray-100 text-gray-500 font-medium px-3.5 py-2 rounded-2xl rounded-tl-none border border-gray-150 text-[11px] flex items-center gap-1.5 shadow-sm">
+                  <span>typing</span>
+                  <span className="flex gap-0.5 items-center pt-1">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                </div>
+              </div>
+            )}
             <div ref={messageEndRef} />
           </div>
 
-          {/* 3. COMPOSER PANEL */}
           <div className="border-t border-border bg-white px-4 py-3 space-y-2 shrink-0">
+            {/* Multi-Image Attachment Queue */}
+            {attachmentImages.length > 0 && (
+              <div className="flex flex-wrap gap-2.5 pb-2 border-b border-gray-100 max-h-32 overflow-y-auto animate-in slide-in-from-bottom-2 duration-200">
+                {attachmentImages.map((img) => (
+                  <div key={img.id} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex shrink-0 group">
+                    <img src={img.preview} alt="Attachment" className="w-full h-full object-cover" />
+                    
+                    {/* Status overlay */}
+                    {img.status === 'uploading' && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full border-2 border-t-transparent border-white animate-spin" />
+                      </div>
+                    )}
+                    {img.status === 'failed' && (
+                      <button
+                        type="button"
+                        onClick={() => uploadAttachmentImage(img.id)}
+                        className="absolute inset-0 bg-red-500/25 flex items-center justify-center hover:bg-red-500/40 transition-colors"
+                        title="Retry upload"
+                      >
+                        <AlertCircle className="w-5 h-5 text-white" />
+                      </button>
+                    )}
+                    {img.status === 'success' && (
+                      <div className="absolute top-1 left-1 bg-green-500 text-white rounded-full p-0.5 shadow-sm">
+                        <Check className="w-2.5 h-2.5" />
+                      </div>
+                    )}
+
+                    {/* Progress indicator */}
+                    {img.status === 'uploading' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
+                        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${img.progress}%` }} />
+                      </div>
+                    )}
+
+                    {/* Cancel button */}
+                    <button
+                      type="button"
+                      onClick={() => handleCancelAttachment(img.id)}
+                      className="absolute top-1 right-1 bg-black/50 hover:bg-black/75 text-white rounded-full p-0.5 transition-colors cursor-pointer shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Image Preview Container */}
             {imagePreview && (
               <div className="relative flex items-center justify-between p-2 bg-gray-50 border border-gray-150 rounded-xl max-w-sm animate-in slide-in-from-bottom-2 duration-200">
@@ -781,28 +1220,41 @@ export default function ChatArea() {
             )}
 
             {/* Input compositor form */}
-            <form onSubmit={handleSendSubmit} className="flex items-end gap-2.5">
-              {/* Attachment Picker */}
+            <form onSubmit={handleSendSubmit} className="flex items-end gap-2">
+              {/* Native Android Gallery Picker Button */}
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleNativeGalleryPick}
                 disabled={isUploading}
                 className="p-2.5 rounded-xl border border-gray-250 bg-white hover:bg-gray-50 text-gray-600 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
+                title="Add Images"
               >
                 <ImageIcon className="w-5 h-5" />
               </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                className="hidden"
-              />
+
+              {/* Emoji/GIF/Sticker Panel Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmojiPicker(!showEmojiPicker && !showGifPicker && !showStickerPicker)
+                  if (showEmojiPicker || showGifPicker || showStickerPicker) {
+                    setShowEmojiPicker(false)
+                    setShowGifPicker(false)
+                    setShowStickerPicker(false)
+                  }
+                }}
+                className={`p-2.5 rounded-xl border border-gray-250 bg-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 ${
+                  (showEmojiPicker || showGifPicker || showStickerPicker) ? 'text-primary border-primary bg-blue-50/50' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Emojis & Stickers"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
 
               {/* Textcomposer area */}
               <textarea
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value.substring(0, 1000))} // 1000 char limit
+                onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Write a message..."
                 disabled={isUploading}
@@ -813,7 +1265,7 @@ export default function ChatArea() {
               {/* Send Button */}
               <button
                 type="submit"
-                disabled={isUploading || (!inputText.trim() && !selectedFile)}
+                disabled={isUploading || (!inputText.trim() && attachmentImages.length === 0 && !selectedFile)}
                 className="p-2.5 rounded-xl bg-primary hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
@@ -823,6 +1275,40 @@ export default function ChatArea() {
                 )}
               </button>
             </form>
+
+            {/* Inline Tabbed Pickers Container */}
+            {(showEmojiPicker || showGifPicker || showStickerPicker) && (
+              <div className="border border-gray-200 rounded-xl mt-2 overflow-hidden bg-white shadow-md animate-in slide-in-from-bottom-2 duration-150 shrink-0">
+                <div className="flex border-b border-gray-150 bg-gray-50 text-xs font-bold text-gray-600">
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmojiPicker(true); setShowGifPicker(false); setShowStickerPicker(false); }}
+                    className={`flex-1 py-2 text-center border-r border-gray-150 cursor-pointer ${showEmojiPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                  >
+                    Emojis
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmojiPicker(false); setShowGifPicker(true); setShowStickerPicker(false); }}
+                    className={`flex-1 py-2 text-center border-r border-gray-150 cursor-pointer ${showGifPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                  >
+                    GIFs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmojiPicker(false); setShowGifPicker(false); setShowStickerPicker(true); }}
+                    className={`flex-1 py-2 text-center cursor-pointer ${showStickerPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                  >
+                    Stickers
+                  </button>
+                </div>
+                <div className="h-60 overflow-y-auto p-2 bg-gray-50/50">
+                  {showEmojiPicker && <EmojiPicker onSelect={handleSelectEmoji} onClose={() => setShowEmojiPicker(false)} />}
+                  {showGifPicker && <GifPicker onSelect={handleSelectGif} onClose={() => setShowGifPicker(false)} />}
+                  {showStickerPicker && <StickerPicker onSelect={handleSelectSticker} onClose={() => setShowStickerPicker(false)} />}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
@@ -838,13 +1324,58 @@ export default function ChatArea() {
             <X className="w-6 h-6" />
           </button>
           <div className="max-w-4xl max-h-[85vh] w-full flex items-center justify-center">
-            <SignedImage
-              path={previewImageSrc}
-              alt="Expanded preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
-            />
+            {previewImageSrc.startsWith('http') || previewImageSrc.startsWith('data:') || previewImageSrc.startsWith('blob:') ? (
+              <img
+                src={previewImageSrc}
+                alt="Expanded preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              />
+            ) : (
+              <SignedImage
+                path={previewImageSrc}
+                alt="Expanded preview"
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              />
+            )}
           </div>
         </div>
+      )}
+
+      {/* 5. MESSAGE CONTEXT MENU BOTTOM SHEET */}
+      {selectedMenuMessage && (
+        <MessageMenu
+          message={selectedMenuMessage}
+          currentUserId={user?.id || ''}
+          onClose={() => setSelectedMenuMessage(null)}
+          onReply={() => { setReplyingTo(selectedMenuMessage); setSelectedMenuMessage(null); }}
+          onCopy={() => { if (selectedMenuMessage.content) handleCopyMessage(selectedMenuMessage.content); setSelectedMenuMessage(null); }}
+          onEdit={() => {
+            if (selectedMenuMessage.message_type === 'text') {
+              setEditingMessageId(selectedMenuMessage.id)
+              setEditInputText(selectedMenuMessage.content || '')
+            } else {
+              showToast('Media messages cannot be edited', 'error')
+            }
+            setSelectedMenuMessage(null)
+          }}
+          onDelete={async () => {
+            if (confirm('Delete this message?')) {
+              await deleteMessage(selectedMenuMessage.id)
+            }
+            setSelectedMenuMessage(null)
+          }}
+          onReact={async (emoji) => {
+            await addReaction(selectedMenuMessage.id, emoji)
+            setSelectedMenuMessage(null)
+          }}
+        />
+      )}
+
+      {/* 6. PROFILE MODAL */}
+      {showProfileModal && (
+        <ProfileModal
+          onClose={() => setShowProfileModal(false)}
+        />
       )}
 
     </div>

@@ -18,13 +18,18 @@ export interface Message {
   conversation_id: string
   sender_id: string
   content: string | null
-  message_type: 'text' | 'image'
+  message_type: 'text' | 'image' | 'gif' | 'sticker'
   image_path: string | null
   reply_to_message_id: string | null
   read_at: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
+  edited_at?: string | null
+  delivered_at?: string | null
+  status?: string | null
+  localImageUri?: string | null
+  localImageFormat?: string | null
   reply_preview?: {
     id: string
     sender_id: string
@@ -47,6 +52,7 @@ export interface Conversation {
   created_at: string
   updated_at: string
   partner: Profile
+  unreadCount?: number
 }
 
 export function useChat() {
@@ -69,9 +75,172 @@ export function useChat() {
   const [loadingConversations, setLoadingConversations] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
 
+  // Offline queue storage and state
+  const [offlineQueue, setOfflineQueue] = useState<any[]>([])
+
+  // Realtime typing indicator states
+  const [partnerIsTyping, setPartnerIsTyping] = useState(false)
+  const broadcastChannelRef = useRef<any>(null)
+
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { showToast } = useToast()
+
+  // 0. Sync Offline Queue Helper
+  const syncOfflineQueue = useCallback(async (currentQueue = offlineQueue) => {
+    if (currentQueue.length === 0 || !user) return
+
+    let isConnected = true
+    try {
+      const { Network } = require('@capacitor/network')
+      const netStatus = await Network.getStatus()
+      isConnected = netStatus.connected
+    } catch (e) {
+      isConnected = navigator.onLine
+    }
+    if (!isConnected) return
+
+    const { Preferences } = require('@capacitor/preferences')
+    const remainingQueue = []
+
+    for (const msg of currentQueue) {
+      try {
+        let imagePath = msg.image_path
+
+        // Upload attachment binary first if message is an image and upload has failed/was offline
+        if (msg.localImageUri && !imagePath) {
+          const response = await fetch(msg.localImageUri)
+          const blob = await response.blob()
+          const fileExt = msg.localImageFormat || 'jpeg'
+          const path = `${msg.conversation_id}/${Date.now()}_sync.${fileExt}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('chat_images')
+            .upload(path, blob, { contentType: `image/${fileExt}` })
+
+          if (uploadError) throw uploadError
+          imagePath = path
+        }
+
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: msg.conversation_id,
+            sender_id: user.id,
+            content: msg.content,
+            message_type: msg.message_type,
+            image_path: imagePath,
+            reply_to_message_id: msg.reply_to_message_id,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        // Automatically unhide conversation for the recipient
+        await supabase
+          .from('conversation_members')
+          .update({ is_deleted: false })
+          .eq('conversation_id', msg.conversation_id)
+          .neq('user_id', user.id)
+
+        // Replace local pending message with permanent data row
+        setMessages((prev) => {
+          const filtered = prev.filter((m) => m.id !== msg.id)
+          if (filtered.some((m) => m.id === data.id)) return filtered
+          return [...filtered, data]
+        })
+      } catch (err) {
+        console.error('Error syncing offline message:', err)
+        remainingQueue.push(msg)
+      }
+    }
+
+    setOfflineQueue(remainingQueue)
+    await Preferences.set({
+      key: 'offline_chat_queue',
+      value: JSON.stringify(remainingQueue)
+    })
+  }, [offlineQueue, user, supabase])
+
+  // Setup offline cache sync connectivity hooks
+  useEffect(() => {
+    const initializeOfflineQueue = async () => {
+      try {
+        const { Preferences } = require('@capacitor/preferences')
+        const data = await Preferences.get({ key: 'offline_chat_queue' })
+        if (data.value) {
+          const parsed = JSON.parse(data.value)
+          setOfflineQueue(parsed)
+          await syncOfflineQueue(parsed)
+        }
+      } catch (e) {
+        console.error('Error initializing offline queue:', e)
+      }
+    }
+    initializeOfflineQueue()
+
+    let networkListener: any = null
+    const setupNetwork = async () => {
+      try {
+        const { Network } = require('@capacitor/network')
+        networkListener = await Network.addListener('networkStatusChange', (status: any) => {
+          if (status.connected) {
+            syncOfflineQueue()
+          }
+        })
+      } catch (e) {
+        window.addEventListener('online', () => syncOfflineQueue())
+      }
+    }
+    setupNetwork()
+
+    return () => {
+      if (networkListener) {
+        networkListener.remove()
+      }
+      window.removeEventListener('online', () => syncOfflineQueue())
+    }
+  }, [syncOfflineQueue])
+
+  // Monitor typing broadcast messages in active conversation channel
+  useEffect(() => {
+    if (!activeConversation || !user) {
+      setPartnerIsTyping(false)
+      return
+    }
+
+    const typingChannelName = `typing_${activeConversation.id}`
+    const channel = supabase.channel(typingChannelName)
+
+    channel
+      .on('broadcast', { event: 'typing' }, (payload: any) => {
+        if (payload.payload.userId !== user.id) {
+          setPartnerIsTyping(payload.payload.isTyping)
+        }
+      })
+      .subscribe()
+
+    broadcastChannelRef.current = channel
+
+    return () => {
+      supabase.removeChannel(channel)
+      broadcastChannelRef.current = null
+      setPartnerIsTyping(false)
+    }
+  }, [activeConversation, user, supabase])
+
+  const setLocalTypingStatus = useCallback((isTyping: boolean) => {
+    if (!broadcastChannelRef.current || !user) return
+    broadcastChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: {
+        userId: user.id,
+        isTyping,
+      }
+    })
+  }, [user])
 
   // 1. Fetch conversations list for user
   const fetchConversations = useCallback(async () => {
@@ -94,7 +263,19 @@ export function useChat() {
         return
       }
 
-      const conversationIds = memberRows.map((r) => r.conversation_id)
+      const conversationIds = memberRows.map((r: any) => r.conversation_id)
+
+      // Fetch unread message counts for all active conversations in a single query check
+      const { data: unreadRows } = await supabase
+        .from('messages')
+        .select('conversation_id')
+        .neq('sender_id', user.id)
+        .is('read_at', null)
+
+      const unreadMap: Record<string, number> = {}
+      unreadRows?.forEach((row: any) => {
+        unreadMap[row.conversation_id] = (unreadMap[row.conversation_id] || 0) + 1
+      })
 
       // Fetch the members of these conversations
       const { data: allMembers, error: membersErr } = await supabase
@@ -127,6 +308,7 @@ export function useChat() {
             created_at: '', // placeholder, can query later if needed
             updated_at: '',
             partner: row.profiles as Profile,
+            unreadCount: unreadMap[row.conversation_id] || 0,
           })
         }
       })
@@ -174,8 +356,8 @@ export function useChat() {
         .select('conversation_id')
         .eq('user_id', targetProfile.id)
 
-      const commonId = memberA?.find((a) =>
-        memberB?.some((b) => b.conversation_id === a.conversation_id)
+      const commonId = memberA?.find((a: any) =>
+        memberB?.some((b: any) => b.conversation_id === a.conversation_id)
       )?.conversation_id
 
       if (commonId) {
@@ -238,16 +420,24 @@ export function useChat() {
     }
   }
 
-  // Helper to mark messages in a conversation as read
+  // Helper to mark messages in a conversation as read and delivered
   const markMessagesAsRead = useCallback(async (convId: string) => {
     if (!user) return
     try {
       await supabase
         .from('messages')
-        .update({ read_at: new Date().toISOString() })
+        .update({ 
+          read_at: new Date().toISOString(),
+          delivered_at: new Date().toISOString()
+        })
         .eq('conversation_id', convId)
         .neq('sender_id', user.id)
         .is('read_at', null)
+
+      // Also reset local conversation unread count
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+      )
     } catch (err) {
       console.error('Error marking messages as read:', err)
     }
@@ -255,6 +445,7 @@ export function useChat() {
 
   // 3. Fetch messages for active conversation
   const fetchMessages = useCallback(async (convId: string) => {
+    if (!user) return
     setLoadingMessages(true)
     try {
       // Get the current user's membership details to find history_cleared_at
@@ -278,7 +469,7 @@ export function useChat() {
 
       // Fetch all reactions for these messages
       if (msgRows && msgRows.length > 0) {
-        const msgIds = msgRows.map((m) => m.id)
+        const msgIds = msgRows.map((m: any) => m.id)
         const { data: reactionRows, error: reactErr } = await supabase
           .from('message_reactions')
           .select('*')
@@ -287,7 +478,7 @@ export function useChat() {
         if (reactErr) throw reactErr
 
         const reactionMap: Record<string, Reaction[]> = {}
-        reactionRows?.forEach((r) => {
+        reactionRows?.forEach((r: any) => {
           if (!reactionMap[r.message_id]) {
             reactionMap[r.message_id] = []
           }
@@ -301,9 +492,17 @@ export function useChat() {
 
       setMessages(msgRows || [])
       
-      // Mark messages as read when loaded
-      if (msgRows && msgRows.some((m) => m.sender_id !== user?.id && !m.read_at)) {
+      // Mark messages as read and delivered when loaded
+      if (msgRows && msgRows.some((m: any) => m.sender_id !== user?.id && !m.read_at)) {
         markMessagesAsRead(convId)
+      } else if (msgRows && msgRows.some((m: any) => m.sender_id !== user?.id && !m.delivered_at)) {
+        supabase
+          .from('messages')
+          .update({ delivered_at: new Date().toISOString() })
+          .eq('conversation_id', convId)
+          .neq('sender_id', user.id)
+          .is('delivered_at', null)
+          .then()
       }
     } catch (err: any) {
       console.error('Error fetching messages:', err)
@@ -322,7 +521,7 @@ export function useChat() {
       fetchMessages(activeConversation.id)
     } else {
       setMessages([])
-      setReactions([])
+      setReactions({})
     }
   }, [activeConversation, fetchMessages])
 
@@ -339,17 +538,43 @@ export function useChat() {
           schema: 'public',
           table: 'messages',
         },
-        (payload) => {
+        (payload: any) => {
           const newMsg = payload.new as Message
           if (newMsg.sender_id === user.id) return
 
-          // If the chat room is currently open, load the message in the feed
+          // If the chat room is currently open, load the message in the feed and mark as Seen
           if (activeConversationRef.current?.id === newMsg.conversation_id) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev
               return [...prev, newMsg]
             })
             markMessagesAsRead(newMsg.conversation_id)
+            
+            // Mark read and delivered in DB
+            supabase
+              .from('messages')
+              .update({ 
+                read_at: new Date().toISOString(),
+                delivered_at: new Date().toISOString()
+              })
+              .eq('id', newMsg.id)
+              .then()
+          } else {
+            // App is open (online), but conversation is not: mark as Delivered in DB
+            supabase
+              .from('messages')
+              .update({ delivered_at: new Date().toISOString() })
+              .eq('id', newMsg.id)
+              .then()
+
+            // Increment local conversation unread count in conversations state
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === newMsg.conversation_id
+                  ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+                  : c
+              )
+            )
           }
         }
       )
@@ -377,7 +602,7 @@ export function useChat() {
           table: 'messages',
           filter: `conversation_id=eq.${convId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const updatedMsg = payload.new as Message
           setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)))
         }
@@ -394,7 +619,7 @@ export function useChat() {
           schema: 'public',
           table: 'message_reactions',
         },
-        (payload) => {
+        (payload: any) => {
           if (payload.eventType === 'INSERT') {
             const newReaction = payload.new as Reaction
             setReactions((prev) => {
@@ -428,12 +653,61 @@ export function useChat() {
   // 5. Send message action
   const sendMessage = async (
     content: string | null,
-    messageType: 'text' | 'image' = 'text',
+    messageType: 'text' | 'image' | 'gif' | 'sticker' = 'text',
     imagePath: string | null = null,
-    replyToMessageId: string | null = null
+    replyToMessageId: string | null = null,
+    localImageUri?: string,
+    localImageFormat?: string
   ) => {
     if (!user || !activeConversation) return null
 
+    // 1. Check network connectivity. If offline, write to queue and return optimistic temp message
+    let isConnected = true
+    try {
+      const { Network } = require('@capacitor/network')
+      const netStatus = await Network.getStatus()
+      isConnected = netStatus.connected
+    } catch (e) {
+      isConnected = typeof navigator !== 'undefined' ? navigator.onLine : true
+    }
+
+    if (!isConnected) {
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const tempMsg = {
+        id: tempId,
+        conversation_id: activeConversation.id,
+        sender_id: user.id,
+        content: content,
+        message_type: messageType,
+        image_path: imagePath,
+        reply_to_message_id: replyToMessageId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        read_at: null,
+        delivered_at: null,
+        status: 'pending', // Special pending indicator
+        localImageUri: localImageUri || null,
+        localImageFormat: localImageFormat || null,
+      }
+
+      setMessages((prev) => [...prev, tempMsg as any])
+
+      const updatedQueue = [...offlineQueue, tempMsg]
+      setOfflineQueue(updatedQueue)
+      try {
+        const { Preferences } = require('@capacitor/preferences')
+        await Preferences.set({
+          key: 'offline_chat_queue',
+          value: JSON.stringify(updatedQueue)
+        })
+      } catch (prefErr) {
+        console.error('Error writing to offline preference queue:', prefErr)
+      }
+
+      return tempMsg as any
+    }
+
+    // 2. Normal online flow
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -471,6 +745,39 @@ export function useChat() {
     }
   }
 
+  // 5.5 Edit message action
+  const editMessage = async (messageId: string, newContent: string) => {
+    if (!user) return false
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          content: newContent,
+          edited_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', messageId)
+        .eq('sender_id', user.id)
+
+      if (error) throw error
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, content: newContent, edited_at: new Date().toISOString() }
+            : m
+        )
+      )
+      showToast('Message edited', 'success')
+      return true
+    } catch (err: any) {
+      console.error('Error editing message:', err)
+      showToast('Failed to edit message', 'error')
+      return false
+    }
+  }
+
   // 6. Delete message (soft delete)
   const deleteMessage = async (messageId: string) => {
     if (!user) return false
@@ -497,11 +804,18 @@ export function useChat() {
     }
   }
 
-  // 7. Add reaction
+  // 7. Add reaction (with changing old reaction logic)
   const addReaction = async (messageId: string, emoji: string) => {
     if (!user) return
 
     try {
+      // First delete any existing reaction by this user on this message to allow changing reaction
+      await supabase
+        .from('message_reactions')
+        .delete()
+        .eq('message_id', messageId)
+        .eq('user_id', user.id)
+
       const { error } = await supabase
         .from('message_reactions')
         .insert({
@@ -510,11 +824,8 @@ export function useChat() {
           reaction: emoji,
         })
 
-      if (error) {
-        // If unique constraint triggers, it means user already reacted. Silently return or ignore.
-        if (error.code !== '23505') {
-          throw error
-        }
+      if (error && error.code !== '23505') {
+        throw error
       }
     } catch (err: any) {
       console.error('Error adding reaction:', err)
@@ -589,6 +900,31 @@ export function useChat() {
     }
   }, [fetchConversations])
 
+  // Listen for push notification click events to route active conversation selection
+  useEffect(() => {
+    const handleOpenChatEvent = (e: any) => {
+      const convId = e.detail
+      if (!convId) return
+      
+      const match = conversationsRef.current.find((c) => c.id === convId)
+      if (match) {
+        setActiveConversation(match)
+      } else {
+        fetchConversations().then(() => {
+          const freshMatch = conversationsRef.current.find((c) => c.id === convId)
+          if (freshMatch) {
+            setActiveConversation(freshMatch)
+          }
+        })
+      }
+    }
+
+    window.addEventListener('open-chat', handleOpenChatEvent)
+    return () => {
+      window.removeEventListener('open-chat', handleOpenChatEvent)
+    }
+  }, [fetchConversations, setActiveConversation])
+
   return {
     conversations,
     activeConversation,
@@ -604,5 +940,10 @@ export function useChat() {
     removeReaction,
     fetchConversations,
     deleteConversation,
+    editMessage,
+    offlineQueue,
+    partnerIsTyping,
+    setLocalTypingStatus,
+    syncOfflineQueue,
   }
 }

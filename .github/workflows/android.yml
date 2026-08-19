@@ -48,6 +48,12 @@ jobs:
         run: |
           npx cap add android
 
+      - name: Configure Firebase FCM Plugins & Credentials
+        run: |
+          node scripts/configure-fcm.js
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
       - name: Generate App Launcher Icons
         run: |
           npx @capacitor/assets generate --android

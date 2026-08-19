@@ -56,7 +56,11 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       return
     }
 
-    setLoading(true) // Show secure portal loading state while checking database
+    const tokenExists = typeof window !== 'undefined' && !!localStorage.getItem('private_space_token')
+    if (!tokenExists) {
+      setLoading(true) // Only show secure portal loading state if checking database without cached token
+    }
+    
     try {
       const reqHeaders = await getHeaders()
       // Check passcode status and verify session in a single API call
@@ -66,6 +70,10 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       const checkData = await checkRes.json()
       setHasPasscode(!!checkData.exists)
       setIsUnlocked(!!checkData.unlocked)
+      
+      if (!checkData.unlocked && typeof window !== 'undefined') {
+        localStorage.removeItem('private_space_token')
+      }
     } catch (err) {
       console.error('Error checking private space status:', err)
     } finally {
@@ -74,6 +82,13 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
   }, [user, authLoading])
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('private_space_token')
+      if (token) {
+        setIsUnlocked(true)
+        setLoading(false)
+      }
+    }
     checkPasscodeStatus()
   }, [checkPasscodeStatus, user, authLoading])
 

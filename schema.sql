@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   username TEXT UNIQUE NOT NULL,
   display_name TEXT,
   avatar_url TEXT,
+  push_token TEXT,
   last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -44,10 +45,12 @@ CREATE TABLE IF NOT EXISTS public.messages (
   conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
   sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   content TEXT,
-  message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image')),
+  message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'gif', 'sticker')),
   image_path TEXT,
   reply_to_message_id UUID REFERENCES public.messages(id) ON DELETE SET NULL,
   read_at TIMESTAMP WITH TIME ZONE,
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  edited_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE
@@ -366,3 +369,35 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.message_reactions;
   END IF;
 END $$;
+
+
+-- ============================================================================
+-- 9. SUPABASE STORAGE BUCKET & POLICIES FOR USER AVATARS
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Allow public read on avatars" ON storage.objects;
+CREATE POLICY "Allow public read on avatars"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "Allow owner to upload avatars" ON storage.objects;
+CREATE POLICY "Allow owner to upload avatars"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Allow owner to update own avatars" ON storage.objects;
+CREATE POLICY "Allow owner to update own avatars"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text)
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Allow owner to delete own avatars" ON storage.objects;
+CREATE POLICY "Allow owner to delete own avatars"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);

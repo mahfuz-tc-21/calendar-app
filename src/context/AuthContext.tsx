@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
       setIsLoading(false)
@@ -110,7 +110,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setIsLoading(true)
     try {
-      // Clear localStorage or cookies if any
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ push_token: null })
+          .eq('id', user.id)
+      }
+
+      if (typeof window !== 'undefined') {
+        const cap = (window as any).Capacitor
+        if (cap && cap.isPluginAvailable('PushNotifications')) {
+          try {
+            const { PushNotifications } = require('@capacitor/push-notifications')
+            await PushNotifications.removeAllListeners()
+          } catch (e) {
+            console.error('Failed to clear push listeners:', e)
+          }
+        }
+      }
+
       sessionStorage.clear()
       await supabase.auth.signOut()
     } catch (err) {
@@ -166,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           schema: 'public',
           table: 'messages',
         },
-        (payload) => {
+        (payload: any) => {
           const newMsg = payload.new as any
           if (newMsg.sender_id === user.id) return
 
@@ -217,6 +235,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(channel)
     }
+  }, [user, supabase])
+
+  // Register push notifications and save device token to user profile
+  useEffect(() => {
+    if (!user) return
+
+    const setupPushNotifications = async () => {
+      if (typeof window !== 'undefined') {
+        const cap = (window as any).Capacitor
+        if (cap && cap.isPluginAvailable('PushNotifications')) {
+          try {
+            const { PushNotifications } = require('@capacitor/push-notifications')
+            
+            const permStatus = await PushNotifications.requestPermissions()
+            if (permStatus.receive === 'granted') {
+              await PushNotifications.register()
+            }
+
+            await PushNotifications.addListener('registration', async (token: any) => {
+              console.log('FCM Registration Token received:', token.value)
+              await supabase
+                .from('profiles')
+                .update({ push_token: token.value })
+                .eq('id', user.id)
+            })
+
+            await PushNotifications.addListener('registrationError', (error: any) => {
+              console.error('Push notification registration error:', error)
+            })
+
+            await PushNotifications.addListener('pushNotificationActionPerformed', (action: any) => {
+              const data = action.notification?.data
+              if (data && data.conversationId) {
+                console.log('Push notification action tapped, conversationId:', data.conversationId)
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('open-chat', { detail: data.conversationId }))
+                }
+              }
+            })
+          } catch (e) {
+            console.error('Capacitor Push Notifications registration failed:', e)
+          }
+        }
+      }
+    }
+
+    setupPushNotifications()
   }, [user, supabase])
 
   return (

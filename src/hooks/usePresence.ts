@@ -37,7 +37,7 @@ export function usePresence(conversationId: string | null, targetUserId: string 
 
     channel
       .on('presence', { event: 'sync' }, handleSync)
-      .subscribe(async (status) => {
+      .subscribe(async (status: any) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
             user_id: currentUserId,
