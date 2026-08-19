@@ -121,6 +121,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Request notification permissions (Capacitor & Web) on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cap = (window as any).Capacitor
+      if (cap && cap.isPluginAvailable('LocalNotifications')) {
+        try {
+          const { LocalNotifications } = require('@capacitor/local-notifications')
+          LocalNotifications.requestPermissions().then((res: any) => {
+            console.log("Capacitor local notifications permission response:", res)
+          })
+        } catch (e) {
+          console.error("Capacitor permission request failed:", e)
+        }
+      } else if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then((res) => {
+            console.log("Web Notification permission request response:", res)
+          })
+        }
+      }
+    }
+  }, [])
+
+  // Global Realtime subscription to new messages for stealth notifications
+  useEffect(() => {
+    if (!user) return
+
+    const CALENDAR_STEALTH_MESSAGES = [
+      "Upcoming event reminder: Daily check-in.",
+      "Event starts soon: Schedule sync.",
+      "Reminder: Calendar event scheduled for today.",
+      "Schedule update: Event reminder.",
+      "Upcoming task: Review calendar sync agenda."
+    ]
+
+    const channel = supabase
+      .channel('global_notifications_feed')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMsg = payload.new as any
+          if (newMsg.sender_id === user.id) return
+
+          // If the user is currently looking at this conversation, do not show notification
+          if (typeof window !== 'undefined' && (window as any).activeConversationId === newMsg.conversation_id) {
+            return
+          }
+
+          // Trigger stealth local notification
+          if (typeof window !== 'undefined') {
+            const randomMsg = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
+            const cap = (window as any).Capacitor
+
+            if (cap && cap.isPluginAvailable('LocalNotifications')) {
+              try {
+                const { LocalNotifications } = require('@capacitor/local-notifications')
+                LocalNotifications.schedule({
+                  notifications: [
+                    {
+                      title: "Calendar Event",
+                      body: randomMsg,
+                      id: Math.floor(Math.random() * 100000),
+                      schedule: { at: new Date(Date.now() + 500) }
+                    }
+                  ]
+                })
+              } catch (e) {
+                console.error("Failed to render native local notification:", e)
+              }
+            } else if ('Notification' in window) {
+              if (Notification.permission === 'granted') {
+                try {
+                  new Notification("Calendar Event", {
+                    body: randomMsg,
+                    icon: "/favicon.ico",
+                    tag: "calendar-event-reminder"
+                  })
+                } catch (e) {
+                  console.error("Failed to render web notification:", e)
+                }
+              }
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, supabase])
+
   return (
     <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile }}>
       {children}
