@@ -104,6 +104,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
         return false
       }
     } catch (err) {
+      console.error('Unlock error details:', err)
       showToast('Connection error. Failed to unlock.', 'error')
       return false
     }
@@ -130,6 +131,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
         return false
       }
     } catch (err) {
+      console.error('Setup passcode error details:', err)
       showToast('Connection error. Failed to configure passcode.', 'error')
       return false
     }
