@@ -61,6 +61,11 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
+      - name: Set Build Tools Version
+        run: |
+          BUILD_TOOL_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | tail -n 1)
+          echo "BUILD_TOOLS_VERSION=$BUILD_TOOL_VERSION" >> $GITHUB_ENV
+
       - name: Sign Release APK
         id: sign_app
         uses: r0adkll/sign-android-release@v1
