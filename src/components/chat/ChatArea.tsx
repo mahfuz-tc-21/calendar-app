@@ -10,6 +10,7 @@ import { usePrivateSpace } from '@/context/PrivateSpaceContext'
 import { useToast } from '@/context/ToastContext'
 import { createClient } from '@/utils/supabase/client'
 import SignedImage from './SignedImage'
+import LinkPreview from './LinkPreview'
 import dynamic from 'next/dynamic'
 
 const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false })
@@ -153,6 +154,7 @@ export default function ChatArea() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   // Action states
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
@@ -165,6 +167,7 @@ export default function ChatArea() {
   const messageEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const chatContentRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isTypingRef = useRef(false)
@@ -178,11 +181,13 @@ export default function ChatArea() {
   const lastMessageIdRef = useRef<string | null>(null)
   const previousScrollHeightRef = useRef<number>(0)
   const isScrollLoadingRef = useRef(false)
+  const observerRunsRef = useRef(0)
 
   // Reset flag whenever conversation changes
   useEffect(() => {
     initialScrollDoneRef.current = false
     lastMessageIdRef.current = null
+    observerRunsRef.current = 0
   }, [activeConversation?.id])
 
   // Scroll to bottom whenever messages change (using useLayoutEffect to prevent visual jump/flicker)
@@ -222,6 +227,34 @@ export default function ChatArea() {
     }
   }, [partnerIsTyping])
 
+  // Use ResizeObserver to detect when the content size changes (e.g. image loads, elements render)
+  // and scroll to bottom if the user was already near the bottom.
+  useEffect(() => {
+    const container = chatContainerRef.current
+    const content = chatContentRef.current
+    if (!container || !content) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      observerRunsRef.current += 1
+
+      // Check if user is close to the bottom (within 250px)
+      const threshold = 250
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+
+      // During the first few renders (images loading, layout shifting on mount),
+      // force scroll to the bottom. Afterwards, only scroll if the user was near the bottom.
+      if (observerRunsRef.current <= 5 || isNearBottom) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
+
+    resizeObserver.observe(content)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [activeConversation?.id])
+
   // Scroll handler to detect when user reaches the top to paginate messages
   const handleScroll = useCallback(async (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget
@@ -250,6 +283,95 @@ export default function ChatArea() {
     document.addEventListener('click', handleOutsideClick)
     return () => document.removeEventListener('click', handleOutsideClick)
   }, [])
+
+  // Create ref to access the latest UI states inside the global Capacitor back button listener
+  const backStatesRef = useRef({
+    activeConversation,
+    showProfileModal,
+    previewImageSrc,
+    selectedMenuMessage,
+    showEmojiPicker,
+    showGifPicker,
+    showStickerPicker,
+    editingMessageId,
+  })
+
+  // Keep ref updated with latest values
+  useEffect(() => {
+    backStatesRef.current = {
+      activeConversation,
+      showProfileModal,
+      previewImageSrc,
+      selectedMenuMessage,
+      showEmojiPicker,
+      showGifPicker,
+      showStickerPicker,
+      editingMessageId,
+    }
+  }, [
+    activeConversation,
+    showProfileModal,
+    previewImageSrc,
+    selectedMenuMessage,
+    showEmojiPicker,
+    showGifPicker,
+    showStickerPicker,
+    editingMessageId,
+  ])
+
+  // Handle mobile hardware back button using Capacitor App plugin
+  useEffect(() => {
+    let backButtonListener: any = null
+
+    const setupListener = async () => {
+      try {
+        const { App } = await import('@capacitor/app')
+        backButtonListener = await App.addListener('backButton', () => {
+          const {
+            activeConversation,
+            showProfileModal,
+            previewImageSrc,
+            selectedMenuMessage,
+            showEmojiPicker,
+            showGifPicker,
+            showStickerPicker,
+            editingMessageId,
+          } = backStatesRef.current
+
+          if (showProfileModal) {
+            setShowProfileModal(false)
+          } else if (previewImageSrc) {
+            setPreviewImageSrc(null)
+          } else if (selectedMenuMessage) {
+            setSelectedMenuMessage(null)
+          } else if (showEmojiPicker) {
+            setShowEmojiPicker(false)
+          } else if (showGifPicker) {
+            setShowGifPicker(false)
+          } else if (showStickerPicker) {
+            setShowStickerPicker(false)
+          } else if (editingMessageId) {
+            setEditingMessageId(null)
+          } else if (activeConversation) {
+            setActiveConversation(null)
+          } else {
+            router.push('/calendar')
+          }
+        })
+      } catch (err) {
+        console.warn('Capacitor App plugin not available, using default web back navigation', err)
+      }
+    }
+
+    setupListener()
+
+    return () => {
+      if (backButtonListener) {
+        backButtonListener.remove()
+      }
+    }
+  }, [router, setActiveConversation])
+
 
   // Combined Touch/Swipe to Reply & Long Press Handlers
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -528,25 +650,7 @@ export default function ChatArea() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Validate type (images only)
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.')
-      return
-    }
-
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image size exceeds 5MB limit.')
-      return
-    }
-
-    setSelectedFile(file)
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string)
-    }
-    reader.readAsDataURL(file)
+    handleAddWebFile(file)
   }
 
   // Cancel image attachment
@@ -555,6 +659,93 @@ export default function ChatArea() {
     setImagePreview(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  // Web file processor (used for drop, paste, or file selection)
+  const handleAddWebFile = async (file: File) => {
+    // Validate type (images only)
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file.', 'error')
+      return
+    }
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size exceeds 5MB limit.', 'error')
+      return
+    }
+
+    const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    
+    // Extract extension cleanly
+    const fileExt = file.name.split('.').pop() || 'jpeg'
+    const format = fileExt.toLowerCase() === 'png' ? 'png' : 'jpeg'
+
+    const previewUrl = URL.createObjectURL(file)
+
+    const mappedItem = {
+      id: tempId,
+      blob: file,
+      preview: previewUrl,
+      status: 'pending' as const,
+      progress: 0,
+      format,
+    }
+
+    setAttachmentImages((prev) => [...prev, mappedItem])
+
+    // Start uploading immediately after queueing
+    uploadImageItem(tempId, file, format)
+  }
+
+  // Drag and drop event handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!activeConversation) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  // Drag leave handler
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  // Drop handler
+  const handleDrop = async (e: React.DragEvent) => {
+    if (!activeConversation) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = e.dataTransfer?.files
+    if (!files || files.length === 0) return
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (file.type.startsWith('image/')) {
+        await handleAddWebFile(file)
+      }
+    }
+  }
+
+  // Clipboard paste event handler
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.startsWith('image/')) {
+        e.preventDefault() // Stop binary string paste in text box
+        const file = item.getAsFile()
+        if (file) {
+          await handleAddWebFile(file)
+        }
+      }
     }
   }
 
@@ -1023,16 +1214,32 @@ export default function ChatArea() {
         </div>
       ) : (
         /* CONVERSATION ACTIVE: SCROLLABLE CHAT FEED & COMPOSER */
-        <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto overflow-hidden bg-white border-x border-border shadow-xs">
+        <div 
+          className="flex-1 flex flex-col max-w-3xl w-full mx-auto overflow-hidden bg-white border-x border-border shadow-xs relative"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* Drag and Drop Overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 bg-primary/5 backdrop-blur-xs border-2 border-dashed border-primary z-50 flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
+              <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-3">
+                <ImageIcon className="w-10 h-10 text-primary animate-bounce" />
+                <h3 className="font-bold text-sm text-gray-800">Drop images here</h3>
+                <p className="text-xs text-gray-500">They will be added to your attachments.</p>
+              </div>
+            </div>
+          )}
           
           {/* Messages view wrapper container */}
           <div className="relative flex-1 min-h-0 flex flex-col">
             {/* Scrollable messages container */}
             <div 
-              className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" 
+              className="flex-1 overflow-y-auto p-4 custom-scrollbar" 
               ref={chatContainerRef}
               onScroll={handleScroll}
             >
+              <div ref={chatContentRef} className="space-y-6">
             {loadingMessages ? (
               <div className="space-y-6 animate-pulse py-2">
                 <div className="flex flex-col items-start max-w-[70%] space-y-1.5">
@@ -1254,7 +1461,13 @@ export default function ChatArea() {
                                 />
                               )
                             ) : (
-                              <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                              <>
+                                <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                                {(() => {
+                                  const urlMatch = m.content?.match(/(https?:\/\/[^\s]+)/i)
+                                  return urlMatch ? <LinkPreview url={urlMatch[0]} isOwn={isOwn} /> : null
+                                })()}
+                              </>
                             )}
 
                             {/* Timestamp & Read Receipts */}
@@ -1334,6 +1547,7 @@ export default function ChatArea() {
               </div>
             )}
               <div ref={messageEndRef} />
+              </div>
             </div>
 
             {/* Scroll-to-bottom floating button */}
@@ -1474,6 +1688,7 @@ export default function ChatArea() {
                 value={inputText}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 onFocus={() => {
                   // Delayed scroll to allow mobile keyboard to open first
                   setTimeout(() => {

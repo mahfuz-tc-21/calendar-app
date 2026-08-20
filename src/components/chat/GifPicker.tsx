@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Loader2 } from 'lucide-react'
+import { getApiUrl } from '@/utils/api'
 
 interface Gif {
   id: string
@@ -24,7 +25,7 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const fetchGifs = async (searchQuery: string) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/gif/search?q=${encodeURIComponent(searchQuery)}&limit=16`)
+      const res = await fetch(getApiUrl(`/api/gif/search?q=${encodeURIComponent(searchQuery)}&limit=16`))
       const data = await res.json()
       if (data.success) {
         setGifs(data.gifs)

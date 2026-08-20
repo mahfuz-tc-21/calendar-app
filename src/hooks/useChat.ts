@@ -853,7 +853,6 @@ export function useChat() {
             : m
         )
       )
-      showToast('Message edited', 'success')
       return true
     } catch (err: any) {
       console.error('Error editing message:', err)
