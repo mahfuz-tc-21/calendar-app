@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Lock, Calendar as CalendarIcon, Clock, Edit2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Edit2 } from 'lucide-react'
 import { useCalendar, CalendarEvent } from '@/hooks/useCalendar'
+import { usePrivateSpace } from '@/context/PrivateSpaceContext'
+import { useToast } from '@/context/ToastContext'
 import EventDialog from './EventDialog'
 
 const MONTH_NAMES = [
@@ -15,7 +17,9 @@ const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CalendarView() {
   const router = useRouter()
-  const { events, loading, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar()
+  const { events, loading, isOffline, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar()
+  const { hasPasscode, unlock, setupPasscode, loading: privateSpaceLoading } = usePrivateSpace()
+  const { showToast } = useToast()
 
   // Calendar Date State
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear())
@@ -25,6 +29,39 @@ export default function CalendarView() {
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+
+  // Two-cell secret unlock state
+  const [clickSequence, setClickSequence] = useState<string[]>([])
+  const unlockTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Setup private access sequence state
+  const [isSetupMode, setIsSetupMode] = useState(false)
+  const [setupStep, setSetupStep] = useState<'idle' | 'pick_1' | 'pick_2' | 'confirm_1' | 'confirm_2'>('idle')
+  const [tempSecret, setTempSecret] = useState<string[]>([])
+  const [confirmSecret, setConfirmSecret] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!privateSpaceLoading) {
+      const mode = (typeof window !== 'undefined' && window.location.search.includes('setup=true')) || !hasPasscode
+      setIsSetupMode(mode)
+      if (mode) {
+        setSetupStep('pick_1')
+      } else {
+        setSetupStep('idle')
+      }
+    }
+  }, [privateSpaceLoading, hasPasscode])
+
+  useEffect(() => {
+    return () => {
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+    }
+  }, [])
+
+  // Prefetch private page for instant transition on successful cell sequence unlock
+  useEffect(() => {
+    router.prefetch('/private')
+  }, [router])
 
   // Fetch events when current month or year changes
   useEffect(() => {
@@ -74,7 +111,7 @@ export default function CalendarView() {
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
     const daysInPrevMonth = new Date(currentYear, currentMonth - 1, 0).getDate()
 
-    // 1. Previous Month days
+    // 1. Previous Month days (hidden, render as empty)
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const day = daysInPrevMonth - i
       const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1
@@ -97,7 +134,7 @@ export default function CalendarView() {
       })
     }
 
-    // 3. Next Month days to fill 42 cells (6 rows * 7 days)
+    // 3. Next Month days to fill 42 cells (6 rows * 7 days) (hidden, render as empty)
     const remainingCells = 42 - grid.length
     for (let i = 1; i <= remainingCells; i++) {
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
@@ -164,6 +201,11 @@ export default function CalendarView() {
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-primary" />
           <span className="font-semibold text-lg tracking-tight text-gray-900">Calendar</span>
+          {isOffline && (
+            <span className="text-[11px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-200 animate-pulse">
+              Offline
+            </span>
+          )}
         </div>
         
         {/* Actions */}
@@ -174,6 +216,34 @@ export default function CalendarView() {
       {/* Main Calendar Panel */}
       <main className="flex-1 max-w-2xl w-full mx-auto p-4 space-y-4">
         
+        {/* Setup Banner */}
+        {isSetupMode && (
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-center space-y-2 animate-in fade-in duration-200">
+            <h2 className="text-sm font-bold text-primary">Set your private access</h2>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {setupStep === 'pick_1' && 'Choose two Calendar cells. These two cells will be used to open your private space. Select the first cell.'}
+              {setupStep === 'pick_2' && 'Select the second cell.'}
+              {setupStep === 'confirm_1' && 'Select the same first cell to confirm your sequence.'}
+              {setupStep === 'confirm_2' && 'Select the same second cell to confirm.'}
+            </p>
+            <div className="flex justify-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSetupMode(false)
+                  setSetupStep('idle')
+                  setTempSecret([])
+                  setConfirmSecret([])
+                  router.replace('/calendar')
+                }}
+                className="px-3 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer"
+              >
+                Cancel Setup
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Navigation & Selectors */}
         <div className="bg-white p-4 rounded-2xl border border-border shadow-xs space-y-3">
           
@@ -252,13 +322,79 @@ export default function CalendarView() {
                 const isSelected = dateStr === selectedDate
                 const isToday = dateStr === todayStr
 
-                const handleDayClick = () => {
-                  if (index === 41) {
-                    router.push('/private')
-                  } else {
-                    setSelectedDate(dateStr)
+                if (!isCurrentMonth) {
+                  return (
+                    <div
+                      key={dateStr}
+                      className="aspect-square relative flex flex-col items-center justify-center p-0.5 sm:p-1 rounded-xl min-h-[40px] select-none bg-transparent"
+                    />
+                  )
+                }
+
+                const handleDayClick = async () => {
+                  setSelectedDate(dateStr)
+
+                  if (isSetupMode) {
+                    if (setupStep === 'pick_1') {
+                      setTempSecret([dateStr])
+                      setSetupStep('pick_2')
+                    } else if (setupStep === 'pick_2') {
+                      if (tempSecret[0] === dateStr) {
+                        showToast('Choose a different second cell', 'error')
+                        return
+                      }
+                      setTempSecret([tempSecret[0], dateStr])
+                      setSetupStep('confirm_1')
+                    } else if (setupStep === 'confirm_1') {
+                      setConfirmSecret([dateStr])
+                      setSetupStep('confirm_2')
+                    } else if (setupStep === 'confirm_2') {
+                      if (tempSecret[0] === confirmSecret[0] && tempSecret[1] === dateStr) {
+                        const success = await setupPasscode(`${tempSecret[0]},${tempSecret[1]}`)
+                        if (success) {
+                          setIsSetupMode(false)
+                          setSetupStep('idle')
+                          setTempSecret([])
+                          setConfirmSecret([])
+                          router.replace('/calendar')
+                        } else {
+                          setTempSecret([])
+                          setConfirmSecret([])
+                          setSetupStep('pick_1')
+                        }
+                      } else {
+                        showToast('Confirmation sequence did not match. Please start again.', 'error')
+                        setTempSecret([])
+                        setConfirmSecret([])
+                        setSetupStep('pick_1')
+                      }
+                    }
+                    return
+                  }
+
+                  // Normal unlock sequence check
+                  if (clickSequence.length === 0) {
+                    setClickSequence([dateStr])
+                    if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+                    unlockTimerRef.current = setTimeout(() => {
+                      setClickSequence([])
+                    }, 3000)
+                  } else if (clickSequence.length === 1) {
+                    if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+                    const seq = [clickSequence[0], dateStr]
+                    setClickSequence([]) // reset immediately
+                    
+                    const success = await unlock(`${seq[0]},${seq[1]}`, true) // silent=true
+                    if (success) {
+                      router.push('/private')
+                    }
                   }
                 }
+
+                const isSelectedInSetup = isSetupMode && (
+                  (setupStep === 'pick_2' && tempSecret[0] === dateStr) ||
+                  (setupStep === 'confirm_2' && confirmSecret[0] === dateStr)
+                )
 
                 return (
                   <button
@@ -269,9 +405,9 @@ export default function CalendarView() {
                         ? 'bg-primary text-white font-semibold shadow-sm'
                         : isToday
                           ? 'bg-blue-50 text-primary font-bold border border-primary/30'
-                          : isCurrentMonth
-                            ? 'text-gray-800 hover:bg-gray-100'
-                            : 'text-gray-350 hover:bg-gray-50'
+                          : isSelectedInSetup
+                            ? 'ring-2 ring-primary text-primary font-medium bg-blue-50'
+                            : 'text-gray-800 hover:bg-gray-100'
                     }`}
                   >
                     <span className="text-sm">{dayNumber}</span>

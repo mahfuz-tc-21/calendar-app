@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { useRouter } from 'next/navigation'
 
 interface ProfileModalProps {
   onClose: () => void
@@ -14,10 +15,13 @@ interface ProfileModalProps {
 export default function ProfileModal({ onClose }: ProfileModalProps) {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { showToast } = useToast()
+  const router = useRouter()
   
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [readReceipts, setReadReceipts] = useState(true)
+  const [activeStatus, setActiveStatus] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
@@ -28,6 +32,11 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     }
   }
 
+  const handleChangePrivateAccess = () => {
+    onClose()
+    window.location.href = '/calendar?setup=true'
+  }
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -35,6 +44,8 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
       setDisplayName(profile.display_name || '')
       setUsername(profile.username || '')
       setAvatarUrl(profile.avatar_url || '')
+      setReadReceipts(profile.read_receipts_enabled !== false)
+      setActiveStatus(profile.active_status_enabled !== false)
     }
   }, [profile])
 
@@ -43,12 +54,11 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     setIsUploading(true)
 
     try {
-      // Trigger native Capacitor picker
       const image = await Camera.getPhoto({
         quality: 70,
-        allowEditing: true, // Native Crop support
+        allowEditing: true,
         resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos, // Gallery selection
+        source: CameraSource.Photos,
       })
 
       if (!image || !image.dataUrl) {
@@ -56,14 +66,12 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         return
       }
 
-      // Convert Data URL to Blob
       const response = await fetch(image.dataUrl)
       const blob = await response.blob()
       
       const fileExt = image.format || 'jpeg'
       const path = `${user.id}/${Date.now()}.${fileExt}`
 
-      // Upload to avatars bucket (upsert true to overwrite or upload separate paths)
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, blob, {
@@ -73,7 +81,6 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
       if (uploadError) throw uploadError
 
-      // Retrieve public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(path)
@@ -94,12 +101,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
     setIsSaving(true)
     try {
-      // Update database profile
       const { error } = await supabase
         .from('profiles')
         .update({
           display_name: displayName.trim(),
           avatar_url: avatarUrl,
+          read_receipts_enabled: readReceipts,
+          active_status_enabled: activeStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
@@ -120,12 +128,10 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200" onClick={onClose}>
       
-      {/* Modal box */}
       <div
         className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-6 animate-in zoom-in-95 duration-200 border border-gray-150 shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
@@ -135,13 +141,11 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
         <div className="text-center space-y-1">
           <h2 className="text-lg font-bold text-gray-900 leading-tight">Edit Profile</h2>
-          <p className="text-xs text-gray-500">Update your avatar and display name.</p>
+          <p className="text-xs text-gray-500">Update your profile information and privacy settings.</p>
         </div>
 
-        {/* Profile Form */}
         <form onSubmit={handleSave} className="space-y-5">
           
-          {/* Avatar Picture Picker */}
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="relative group">
               <div className="w-24 h-24 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center select-none uppercase font-bold text-gray-400 text-3xl">
@@ -169,8 +173,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             </span>
           </div>
 
-          <div className="space-y-3.5">
-            {/* Display name field */}
+          <div className="space-y-3.5 max-h-[30vh] overflow-y-auto pr-1">
             <div className="flex flex-col gap-1 text-left">
               <label htmlFor="displayNameInput" className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">
                 Display Name
@@ -185,7 +188,6 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
               />
             </div>
 
-            {/* Username field (Read-only) */}
             <div className="flex flex-col gap-1 text-left">
               <label htmlFor="usernameInput" className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">
                 Username
@@ -199,10 +201,64 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
                 className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-450 cursor-not-allowed leading-snug font-mono select-none"
               />
             </div>
+
+            <div className="flex flex-col gap-3 text-left border-t border-gray-100 pt-4">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">
+                Privacy Settings
+              </span>
+              
+              <div className="flex items-start justify-between gap-3 p-1">
+                <div className="flex flex-col gap-0.5">
+                  <label htmlFor="readReceiptsCheckbox" className="text-sm font-semibold text-gray-800">
+                    Read Receipts
+                  </label>
+                  <p className="text-[10px] text-gray-500 leading-tight">
+                    Let others know when you've read their messages.
+                  </p>
+                </div>
+                <input
+                  id="readReceiptsCheckbox"
+                  type="checkbox"
+                  checked={readReceipts}
+                  onChange={(e) => setReadReceipts(e.target.checked)}
+                  className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer mt-1 shrink-0"
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-3 p-1">
+                <div className="flex flex-col gap-0.5">
+                  <label htmlFor="activeStatusCheckbox" className="text-sm font-semibold text-gray-800">
+                    Active Status
+                  </label>
+                  <p className="text-[10px] text-gray-500 leading-tight">
+                    Let others see when you're active.
+                  </p>
+                </div>
+                <input
+                  id="activeStatusCheckbox"
+                  type="checkbox"
+                  checked={activeStatus}
+                  onChange={(e) => setActiveStatus(e.target.checked)}
+                  className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer mt-1 shrink-0"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-left border-t border-gray-100 pt-4">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">
+                Private Access
+              </span>
+              <button
+                type="button"
+                onClick={handleChangePrivateAccess}
+                className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 text-gray-850 rounded-xl font-bold text-xs border border-gray-200 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px]"
+              >
+                Change Private Access
+              </button>
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-2.5 pt-2">
+          <div className="flex flex-col gap-2.5 pt-2 border-t border-gray-100">
             <button
               type="button"
               onClick={handleLogoutClick}

@@ -115,3 +115,13 @@ AFTER INSERT ON public.messages
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_message_push();
 
+
+-- ============================================================================
+-- 5. DATABASE COLUMNS FOR PRIVACY SETTINGS
+-- Run this block in your Supabase SQL Editor to add settings columns to profiles.
+-- ============================================================================
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS read_receipts_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+ADD COLUMN IF NOT EXISTS active_status_enabled BOOLEAN DEFAULT TRUE NOT NULL;
+
+

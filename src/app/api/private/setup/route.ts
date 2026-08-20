@@ -20,26 +20,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid passcode. Minimum 4 characters required.' }, { status: 400 })
     }
 
-    // Check if passcode is already set
+    const hash = hashPasscode(passcode, user.id)
+
+    // Check if passcode is already set to decide update vs insert
     const { data: existing } = await supabase
       .from('privacy_settings')
       .select('id')
       .eq('user_id', user.id)
       .maybeSingle()
 
+    let query
     if (existing) {
-      return NextResponse.json({ error: 'Passcode already configured' }, { status: 400 })
+      query = supabase
+        .from('privacy_settings')
+        .update({
+          access_key_hash: hash,
+          failed_attempts: 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id)
+    } else {
+      query = supabase
+        .from('privacy_settings')
+        .insert({
+          user_id: user.id,
+          access_key_hash: hash,
+          failed_attempts: 0,
+        })
     }
 
-    const hash = hashPasscode(passcode, user.id)
-
-    const { error } = await supabase
-      .from('privacy_settings')
-      .insert({
-        user_id: user.id,
-        access_key_hash: hash,
-        failed_attempts: 0,
-      })
+    const { error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

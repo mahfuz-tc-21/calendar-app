@@ -10,6 +10,8 @@ export interface Profile {
   display_name: string
   avatar_url: string
   last_seen: string
+  read_receipts_enabled?: boolean
+  active_status_enabled?: boolean
   created_at: string
   updated_at: string
 }
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at')
+        .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at, read_receipts_enabled, active_status_enabled')
         .eq('id', uid)
         .single()
       if (data) {
@@ -139,10 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      sessionStorage.clear()
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('private_space_token')
-      }
       try {
         await supabase.removeAllChannels()
       } catch (err) {
@@ -152,6 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error during sign out:', err)
     } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('private_space_token')
+        sessionStorage.clear()
+        window.location.href = '/login'
+      }
       setUser(null)
       setProfile(null)
       setIsLoading(false)

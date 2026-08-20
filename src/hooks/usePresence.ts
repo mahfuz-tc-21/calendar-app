@@ -3,12 +3,24 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
-export function usePresence(conversationId: string | null, targetUserId: string | null, currentUserId: string | null) {
+export function usePresence(
+  conversationId: string | null,
+  targetUserId: string | null,
+  currentUserId: string | null,
+  currentUserActiveStatusEnabled: boolean,
+  partnerActiveStatusEnabled: boolean
+) {
   const [isOnline, setIsOnline] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
-    if (!conversationId || !targetUserId || !currentUserId) {
+    if (
+      !conversationId ||
+      !targetUserId ||
+      !currentUserId ||
+      !currentUserActiveStatusEnabled ||
+      !partnerActiveStatusEnabled
+    ) {
       setIsOnline(false)
       return
     }
@@ -22,6 +34,11 @@ export function usePresence(conversationId: string | null, targetUserId: string 
     })
 
     const handleSync = () => {
+      if (!currentUserActiveStatusEnabled || !partnerActiveStatusEnabled) {
+        setIsOnline(false)
+        return
+      }
+
       const state = channel.presenceState()
       let partnerOnline = false
       
@@ -39,17 +56,26 @@ export function usePresence(conversationId: string | null, targetUserId: string 
       .on('presence', { event: 'sync' }, handleSync)
       .subscribe(async (status: any) => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({
-            user_id: currentUserId,
-            online_at: new Date().toISOString(),
-          })
+          if (currentUserActiveStatusEnabled && partnerActiveStatusEnabled) {
+            await channel.track({
+              user_id: currentUserId,
+              online_at: new Date().toISOString(),
+            })
+          }
         }
       })
 
     return () => {
       channel.unsubscribe()
     }
-  }, [conversationId, targetUserId, currentUserId, supabase])
+  }, [
+    conversationId,
+    targetUserId,
+    currentUserId,
+    currentUserActiveStatusEnabled,
+    partnerActiveStatusEnabled,
+    supabase
+  ])
 
   return isOnline
 }

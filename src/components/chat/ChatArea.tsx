@@ -88,7 +88,9 @@ export default function ChatArea() {
   const isPartnerOnline = usePresence(
     activeConversation?.id || null,
     activeConversation?.partner?.id || null,
-    user?.id || null
+    user?.id || null,
+    profile?.active_status_enabled !== false,
+    (partnerProfile || activeConversation?.partner)?.active_status_enabled !== false
   )
 
   const supabase = createClient()
@@ -106,7 +108,7 @@ export default function ChatArea() {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at')
+          .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at, active_status_enabled')
           .eq('id', activeConversation.partner.id)
           .single()
         if (data && !error) {
@@ -984,9 +986,11 @@ export default function ChatArea() {
   }, [handleSendSubmit])
 
   // Lock and exit chat space handler
-  const handleLockExit = async () => {
-    await lock()
-    router.push('/calendar')
+  const handleLockExit = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('private_space_token')
+    }
+    window.location.href = '/calendar'
   }
 
   // Handle reaction toggle
@@ -1069,10 +1073,12 @@ export default function ChatArea() {
                 <span className="font-semibold text-sm text-gray-900 leading-tight">
                   {(partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username}
                 </span>
-                <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-400">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  {isPartnerOnline ? 'Online' : formatLastSeen((partnerProfile || activeConversation.partner).last_seen)}
-                </span>
+                {profile?.active_status_enabled !== false && (partnerProfile || activeConversation.partner).active_status_enabled !== false && (
+                  <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-400 mt-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    {isPartnerOnline ? 'Online' : formatLastSeen((partnerProfile || activeConversation.partner).last_seen)}
+                  </span>
+                )}
               </div>
             </div>
           ) : (

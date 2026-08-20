@@ -96,6 +96,11 @@ export function useChat() {
   const { user, profile } = useAuth()
   const { showToast } = useToast()
 
+  const profileRef = useRef<Profile | null>(null)
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
   // 0. Sync Offline Queue Helper
   const syncOfflineQueue = useCallback(async (currentQueue = offlineQueue) => {
     if (currentQueue.length === 0 || !user) return
@@ -275,11 +280,11 @@ export function useChat() {
 
       const conversationIds = memberRows.map((r: any) => r.conversation_id)
 
-      // Fetch unread count and members details in parallel
-      const [unreadResult, membersResult] = await Promise.all([
+      // Fetch unread count, members details and message timestamps in parallel
+      const [unreadResult, membersResult, latestMessagesResult] = await Promise.all([
         supabase
           .from('messages')
-          .select('conversation_id')
+          .select('conversation_id, created_at')
           .in('conversation_id', conversationIds)
           .neq('sender_id', user.id)
           .is('read_at', null),
@@ -288,6 +293,7 @@ export function useChat() {
           .select(`
             conversation_id,
             user_id,
+            joined_at,
             profiles (
               id,
               username,
@@ -297,18 +303,45 @@ export function useChat() {
               updated_at
             )
           `)
+          .in('conversation_id', conversationIds),
+        supabase
+          .from('messages')
+          .select('conversation_id, created_at')
           .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: false })
       ])
 
       const { data: unreadRows, error: unreadErr } = unreadResult
       const { data: allMembers, error: membersErr } = membersResult
+      const { data: latestMsgRows, error: latestMsgErr } = latestMessagesResult
 
       if (unreadErr) throw unreadErr
       if (membersErr) throw membersErr
+      if (latestMsgErr) throw latestMsgErr
 
       const unreadMap: Record<string, number> = {}
       unreadRows?.forEach((row: any) => {
-        unreadMap[row.conversation_id] = (unreadMap[row.conversation_id] || 0) + 1
+        const convId = row.conversation_id
+        
+        // Always filter unread messages locally by last read time if present in localStorage
+        const lastReadTimeStr = typeof window !== 'undefined' ? localStorage.getItem(`last_read_time_${convId}`) : null
+        if (lastReadTimeStr) {
+          const lastReadTime = new Date(lastReadTimeStr)
+          const messageTime = new Date(row.created_at)
+          if (messageTime <= lastReadTime) {
+            return
+          }
+        }
+
+        unreadMap[convId] = (unreadMap[convId] || 0) + 1
+      })
+
+      // Map each conversation ID to its latest message timestamp
+      const latestMessageTimeMap: Record<string, string> = {}
+      latestMsgRows?.forEach((row: any) => {
+        if (!latestMessageTimeMap[row.conversation_id]) {
+          latestMessageTimeMap[row.conversation_id] = row.created_at
+        }
       })
 
       // Parse conversations and find the chat partner (the other user)
@@ -321,11 +354,18 @@ export function useChat() {
           list.push({
             id: row.conversation_id,
             created_at: '', // placeholder, can query later if needed
-            updated_at: '',
+            updated_at: latestMessageTimeMap[row.conversation_id] || row.joined_at || '',
             partner: row.profiles as Profile,
             unreadCount: unreadMap[row.conversation_id] || 0,
           })
         }
+      })
+
+      // Sort the list of conversations by updated_at (latest message or join time) in descending order
+      list.sort((a, b) => {
+        const timeA = new Date(a.updated_at || 0).getTime()
+        const timeB = new Date(b.updated_at || 0).getTime()
+        return timeB - timeA
       })
 
       setConversations(list)
@@ -436,18 +476,37 @@ export function useChat() {
   }
 
   // Helper to mark messages in a conversation as read and delivered
-  const markMessagesAsRead = useCallback(async (convId: string) => {
+  const markMessagesAsRead = useCallback(async (convId: string, latestMsgTime?: string) => {
     if (!user) return
+    const readReceiptsEnabled = profile?.read_receipts_enabled !== false
+
     try {
-      await supabase
-        .from('messages')
-        .update({ 
-          read_at: new Date().toISOString(),
-          delivered_at: new Date().toISOString()
-        })
-        .eq('conversation_id', convId)
-        .neq('sender_id', user.id)
-        .is('read_at', null)
+      if (readReceiptsEnabled) {
+        await supabase
+          .from('messages')
+          .update({ 
+            read_at: new Date().toISOString(),
+            delivered_at: new Date().toISOString()
+          })
+          .eq('conversation_id', convId)
+          .neq('sender_id', user.id)
+          .is('read_at', null)
+      } else {
+        await supabase
+          .from('messages')
+          .update({ 
+            delivered_at: new Date().toISOString()
+          })
+          .eq('conversation_id', convId)
+          .neq('sender_id', user.id)
+          .is('delivered_at', null)
+      }
+
+      // Save the read timestamp locally to calculate unread badge correctly
+      if (typeof window !== 'undefined') {
+        const timeToSave = latestMsgTime || new Date().toISOString()
+        localStorage.setItem(`last_read_time_${convId}`, timeToSave)
+      }
 
       // Also reset local conversation unread count
       setConversations((prev) =>
@@ -456,7 +515,7 @@ export function useChat() {
     } catch (err) {
       console.error('Error marking messages as read:', err)
     }
-  }, [supabase, user])
+  }, [supabase, user, profile])
 
   // 3. Fetch messages for active conversation
   const fetchMessages = useCallback(async (convId: string) => {
@@ -517,7 +576,7 @@ export function useChat() {
       
       // Mark messages as read and delivered when loaded
       if (finalMsgs.length > 0 && finalMsgs.some((m: any) => m.sender_id !== user?.id && !m.read_at)) {
-        markMessagesAsRead(convId)
+        markMessagesAsRead(convId, finalMsgs[finalMsgs.length - 1].created_at)
       } else if (finalMsgs.length > 0 && finalMsgs.some((m: any) => m.sender_id !== user?.id && !m.delivered_at)) {
         supabase
           .from('messages')
@@ -632,17 +691,36 @@ export function useChat() {
               if (prev.some((m) => m.id === newMsg.id)) return prev
               return [...prev, newMsg]
             })
-            markMessagesAsRead(newMsg.conversation_id)
+            markMessagesAsRead(newMsg.conversation_id, newMsg.created_at)
             
             // Mark read and delivered in DB
-            supabase
-              .from('messages')
-              .update({ 
-                read_at: new Date().toISOString(),
-                delivered_at: new Date().toISOString()
-              })
-              .eq('id', newMsg.id)
-              .then()
+            const readReceiptsEnabled = profileRef.current?.read_receipts_enabled !== false
+            if (readReceiptsEnabled) {
+              supabase
+                .from('messages')
+                .update({ 
+                  read_at: new Date().toISOString(),
+                  delivered_at: new Date().toISOString()
+                })
+                .eq('id', newMsg.id)
+                .then()
+            } else {
+              supabase
+                .from('messages')
+                .update({ 
+                  delivered_at: new Date().toISOString()
+                })
+                .eq('id', newMsg.id)
+                .then()
+            }
+
+            // Move conversation to top in conversations list
+            setConversations((prev) => {
+              const target = prev.find((c) => c.id === newMsg.conversation_id)
+              if (!target) return prev
+              const filtered = prev.filter((c) => c.id !== newMsg.conversation_id)
+              return [target, ...filtered]
+            })
           } else {
             // App is open (online), but conversation is not: mark as Delivered in DB
             supabase
@@ -651,14 +729,17 @@ export function useChat() {
               .eq('id', newMsg.id)
               .then()
 
-            // Increment local conversation unread count in conversations state
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === newMsg.conversation_id
-                  ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
-                  : c
-              )
-            )
+            // Move conversation to top and increment local conversation unread count
+            setConversations((prev) => {
+              const target = prev.find((c) => c.id === newMsg.conversation_id)
+              if (!target) return prev
+              const updated = { 
+                ...target, 
+                unreadCount: (target.unreadCount || 0) + 1 
+              }
+              const filtered = prev.filter((c) => c.id !== newMsg.conversation_id)
+              return [updated, ...filtered]
+            })
           }
         }
       )
@@ -708,10 +789,14 @@ export function useChat() {
             const newReaction = payload.new as Reaction
             setReactions((prev) => {
               const current = prev[newReaction.message_id] || []
-              if (current.some((r) => r.id === newReaction.id)) return prev
+              // Filter out temporary/optimistic duplicates by same user
+              const filtered = current.filter((r) => 
+                r.id !== newReaction.id && 
+                !(r.user_id === newReaction.user_id && r.reaction === newReaction.reaction)
+              )
               return {
                 ...prev,
-                [newReaction.message_id]: [...current, newReaction],
+                [newReaction.message_id]: [...filtered, newReaction],
               }
             })
           } else if (payload.eventType === 'DELETE') {
@@ -776,6 +861,14 @@ export function useChat() {
 
       setMessages((prev) => [...prev, tempMsg as any])
 
+      // Move conversation to top in conversations list
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === activeConversation.id)
+        if (!target) return prev
+        const filtered = prev.filter((c) => c.id !== activeConversation.id)
+        return [target, ...filtered]
+      })
+
       const updatedQueue = [...offlineQueue, tempMsg]
       setOfflineQueue(updatedQueue)
       try {
@@ -819,6 +912,14 @@ export function useChat() {
       setMessages((prev) => {
         if (prev.some((m) => m.id === data.id)) return prev
         return [...prev, data]
+      })
+
+      // Move conversation to top in conversations list
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === activeConversation.id)
+        if (!target) return prev
+        const filtered = prev.filter((c) => c.id !== activeConversation.id)
+        return [target, ...filtered]
       })
 
       return data
@@ -890,6 +991,23 @@ export function useChat() {
   const addReaction = async (messageId: string, emoji: string) => {
     if (!user) return
 
+    // Optimistically update local reactions state instantly
+    setReactions((prev) => {
+      const current = prev[messageId] || []
+      const filtered = current.filter((r) => r.user_id !== user.id)
+      const newReaction = {
+        id: `temp_react_${Date.now()}`,
+        message_id: messageId,
+        user_id: user.id,
+        reaction: emoji,
+        created_at: new Date().toISOString()
+      }
+      return {
+        ...prev,
+        [messageId]: [...filtered, newReaction]
+      }
+    })
+
     try {
       // First delete any existing reaction by this user on this message to allow changing reaction
       await supabase
@@ -917,6 +1035,16 @@ export function useChat() {
   // 8. Remove reaction
   const removeReaction = async (messageId: string, emoji: string) => {
     if (!user) return
+
+    // Optimistically remove from local reactions state instantly
+    setReactions((prev) => {
+      const current = prev[messageId] || []
+      const filtered = current.filter((r) => !(r.user_id === user.id && r.reaction === emoji))
+      return {
+        ...prev,
+        [messageId]: filtered
+      }
+    })
 
     try {
       const { error } = await supabase
