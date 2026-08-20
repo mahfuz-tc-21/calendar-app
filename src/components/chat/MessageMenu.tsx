@@ -8,7 +8,7 @@ interface MessageMenuProps {
     id: string
     sender_id: string
     content: string | null
-    message_type: 'text' | 'image' | 'gif' | 'sticker'
+    message_type: 'text' | 'image' | 'gif' | 'sticker' | 'game'
   }
   currentUserId: string
   onClose: () => void

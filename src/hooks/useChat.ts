@@ -18,7 +18,7 @@ export interface Message {
   conversation_id: string
   sender_id: string
   content: string | null
-  message_type: 'text' | 'image' | 'gif' | 'sticker'
+  message_type: 'text' | 'image' | 'gif' | 'sticker' | 'game'
   image_path: string | null
   reply_to_message_id: string | null
   read_at: string | null
@@ -30,6 +30,7 @@ export interface Message {
   status?: string | null
   localImageUri?: string | null
   localImageFormat?: string | null
+  game_id?: string | null
   reply_preview?: {
     id: string
     sender_id: string
@@ -45,6 +46,19 @@ export interface Reaction {
   user_id: string
   reaction: string
   created_at: string
+}
+
+export interface Game {
+  id: string
+  conversation_id: string
+  game_type: 'tictactoe' | 'rps' | 'emojiguess' | 'wouldyourather' | 'battleship' | 'wordguess'
+  created_by: string
+  opponent_id: string
+  status: 'pending' | 'active' | 'completed' | 'cancelled'
+  state: any
+  winner_id: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface Conversation {
@@ -87,6 +101,8 @@ export function useChat() {
   // Realtime typing indicator states
   const [partnerIsTyping, setPartnerIsTyping] = useState(false)
   const broadcastChannelRef = useRef<any>(null)
+
+  const [activeGames, setActiveGames] = useState<Record<string, Game>>({})
 
   const supabaseRef = useRef<any>(null)
   if (!supabaseRef.current) {
@@ -535,7 +551,7 @@ export function useChat() {
       // Fetch the latest 15 messages for performance, ordered descending, then reverse them locally
       const { data: msgRows, error: msgErr } = await supabase
         .from('messages')
-        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at')
+        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at, game_id')
         .eq('conversation_id', convId)
         .gte('created_at', historyClearedAt)
         .order('created_at', { ascending: false })
@@ -545,15 +561,29 @@ export function useChat() {
 
       const finalMsgs = msgRows ? [...msgRows].reverse() : []
 
-      // Fetch all reactions for these messages
+      // Fetch all reactions and games for these messages in parallel
       if (finalMsgs.length > 0) {
         const msgIds = finalMsgs.map((m: any) => m.id)
-        const { data: reactionRows, error: reactErr } = await supabase
-          .from('message_reactions')
-          .select('id, message_id, user_id, reaction, created_at')
-          .in('message_id', msgIds)
+        const gameIds = finalMsgs.map((m: any) => m.game_id).filter(Boolean)
+
+        const [reactionResult, gamesResult] = await Promise.all([
+          supabase
+            .from('message_reactions')
+            .select('id, message_id, user_id, reaction, created_at')
+            .in('message_id', msgIds),
+          gameIds.length > 0
+            ? supabase
+                .from('games')
+                .select('*')
+                .in('id', gameIds)
+            : Promise.resolve({ data: [], error: null })
+        ])
+
+        const { data: reactionRows, error: reactErr } = reactionResult
+        const { data: gamesRows, error: gamesErr } = gamesResult
 
         if (reactErr) throw reactErr
+        if (gamesErr) throw gamesErr
 
         const reactionMap: Record<string, Reaction[]> = {}
         reactionRows?.forEach((r: any) => {
@@ -564,6 +594,12 @@ export function useChat() {
         })
 
         setReactions(reactionMap)
+
+        const gamesMap: Record<string, Game> = {}
+        gamesRows?.forEach((g: any) => {
+          gamesMap[g.id] = g
+        })
+        setActiveGames((prev) => ({ ...prev, ...gamesMap }))
       } else {
         setReactions({})
       }
@@ -613,7 +649,7 @@ export function useChat() {
 
       const { data: olderRows, error: msgErr } = await supabase
         .from('messages')
-        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at')
+        .select('id, conversation_id, sender_id, content, message_type, image_path, reply_to_message_id, read_at, created_at, updated_at, deleted_at, edited_at, delivered_at, game_id')
         .eq('conversation_id', convId)
         .gte('created_at', historyClearedAt)
         .lt('created_at', oldestMessageTimestamp)
@@ -626,12 +662,25 @@ export function useChat() {
         const reversed = [...olderRows].reverse()
         setMessages((prev) => [...reversed, ...prev])
         
-        // Fetch reactions for older messages
+        // Fetch reactions and games for older messages in parallel
         const msgIds = olderRows.map((m: any) => m.id)
-        const { data: reactionRows } = await supabase
-          .from('message_reactions')
-          .select('id, message_id, user_id, reaction, created_at')
-          .in('message_id', msgIds)
+        const gameIds = olderRows.map((m: any) => m.game_id).filter(Boolean)
+
+        const [reactionResult, gamesResult] = await Promise.all([
+          supabase
+            .from('message_reactions')
+            .select('id, message_id, user_id, reaction, created_at')
+            .in('message_id', msgIds),
+          gameIds.length > 0
+            ? supabase
+                .from('games')
+                .select('*')
+                .in('id', gameIds)
+            : Promise.resolve({ data: [], error: null })
+        ])
+
+        const { data: reactionRows } = reactionResult
+        const { data: gamesRows } = gamesResult
 
         if (reactionRows && reactionRows.length > 0) {
           setReactions((prev) => {
@@ -646,6 +695,14 @@ export function useChat() {
             })
             return next
           })
+        }
+
+        if (gamesRows && gamesRows.length > 0) {
+          const gamesMap: Record<string, Game> = {}
+          gamesRows.forEach((g: any) => {
+            gamesMap[g.id] = g
+          })
+          setActiveGames((prev) => ({ ...prev, ...gamesMap }))
         }
       }
 
@@ -813,9 +870,33 @@ export function useChat() {
       )
       .subscribe()
 
+    // Games subscription
+    const gamesChannel = supabase
+      .channel(`chat_games_${convId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'games',
+          filter: `conversation_id=eq.${convId}`,
+        },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const updatedGame = payload.new as Game
+            setActiveGames((prev) => ({
+              ...prev,
+              [updatedGame.id]: updatedGame
+            }))
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(activeChannel)
       supabase.removeChannel(reactionChannel)
+      supabase.removeChannel(gamesChannel)
     }
   }, [activeConversation, supabase])
 
@@ -1118,6 +1199,8 @@ export function useChat() {
     setActiveConversation,
     messages,
     reactions,
+    activeGames,
+    setActiveGames,
     loadingConversations,
     loadingMessages,
     startConversation,

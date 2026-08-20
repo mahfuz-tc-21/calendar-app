@@ -52,3 +52,16 @@ export async function createClient() {
 
   return client
 }
+
+// Admin client that bypasses RLS — only use in trusted server-side API routes
+export function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  if (!serviceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
+  }
+  const { createClient: createSupabaseClient } = require('@supabase/supabase-js')
+  return createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false }
+  })
+}

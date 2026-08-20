@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck, ChevronDown, Gamepad2 } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -18,6 +18,8 @@ const GifPicker = dynamic(() => import('./GifPicker'), { ssr: false })
 const StickerPicker = dynamic(() => import('./StickerPicker'), { ssr: false })
 const MessageMenu = dynamic(() => import('./MessageMenu'), { ssr: false })
 const ProfileModal = dynamic(() => import('../profile/ProfileModal'), { ssr: false })
+import GameCard from './GameCard'
+import GamesMenu from './GamesMenu'
 import { Clipboard } from '@capacitor/clipboard'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
@@ -66,6 +68,8 @@ export default function ChatArea() {
     setActiveConversation,
     messages,
     reactions,
+    activeGames,
+    setActiveGames,
     loadingConversations,
     loadingMessages,
     startConversation,
@@ -132,6 +136,7 @@ export default function ChatArea() {
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showStickerPicker, setShowStickerPicker] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [isGamesMenuOpen, setIsGamesMenuOpen] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
 
   // Context Bottom Sheet Menu State
@@ -290,6 +295,7 @@ export default function ChatArea() {
   const backStatesRef = useRef({
     activeConversation,
     showProfileModal,
+    isGamesMenuOpen,
     previewImageSrc,
     selectedMenuMessage,
     showEmojiPicker,
@@ -303,6 +309,7 @@ export default function ChatArea() {
     backStatesRef.current = {
       activeConversation,
       showProfileModal,
+      isGamesMenuOpen,
       previewImageSrc,
       selectedMenuMessage,
       showEmojiPicker,
@@ -313,6 +320,7 @@ export default function ChatArea() {
   }, [
     activeConversation,
     showProfileModal,
+    isGamesMenuOpen,
     previewImageSrc,
     selectedMenuMessage,
     showEmojiPicker,
@@ -342,6 +350,8 @@ export default function ChatArea() {
 
           if (showProfileModal) {
             setShowProfileModal(false)
+          } else if (isGamesMenuOpen) {
+            setIsGamesMenuOpen(false)
           } else if (previewImageSrc) {
             setPreviewImageSrc(null)
           } else if (selectedMenuMessage) {
@@ -1093,6 +1103,16 @@ export default function ChatArea() {
           {activeConversation && (
             <button
               type="button"
+              onClick={() => setIsGamesMenuOpen(true)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+              title="Games"
+            >
+              <Gamepad2 className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+          {activeConversation && (
+            <button
+              type="button"
               onClick={() => {
                 if (confirm('Are you sure you want to delete this full conversation? This will permanently delete all messages and history.')) {
                   deleteConversation(activeConversation.id)
@@ -1353,7 +1373,7 @@ export default function ChatArea() {
                             className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed touch-pan-y transition-all ${
                               isDeleted
                                 ? 'bg-gray-100 text-gray-400 italic border border-gray-150'
-                                : (m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content))
+                                : (m.message_type === 'gif' || m.message_type === 'sticker' || m.message_type === 'game' || (m.message_type === 'image' && !m.content))
                                   ? 'bg-transparent p-0 shadow-none border-none'
                                   : isOwn
                                     ? 'bg-primary text-white font-medium rounded-tr-none'
@@ -1406,6 +1426,13 @@ export default function ChatArea() {
                                   </button>
                                 </div>
                               </div>
+                            ) : m.message_type === 'game' ? (
+                              <GameCard
+                                message={m}
+                                isOwn={isOwn}
+                                activeGames={activeGames}
+                                currentUserId={user?.id || ''}
+                              />
                             ) : m.message_type === 'image' ? (
                               <div className="space-y-1.5 max-w-[240px]">
                                 {m.image_path ? (
@@ -1823,6 +1850,15 @@ export default function ChatArea() {
       {showProfileModal && (
         <ProfileModal
           onClose={() => setShowProfileModal(false)}
+        />
+      )}
+
+      {/* 6.5 GAMES MENU MODAL */}
+      {isGamesMenuOpen && activeConversation && (
+        <GamesMenu
+          conversationId={activeConversation.id}
+          opponentId={(partnerProfile || activeConversation.partner).id}
+          onClose={() => setIsGamesMenuOpen(false)}
         />
       )}
 

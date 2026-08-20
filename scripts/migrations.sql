@@ -125,3 +125,80 @@ ADD COLUMN IF NOT EXISTS read_receipts_enabled BOOLEAN DEFAULT TRUE NOT NULL,
 ADD COLUMN IF NOT EXISTS active_status_enabled BOOLEAN DEFAULT TRUE NOT NULL;
 
 
+-- ============================================================================
+-- 6. PRIVATE CHAT GAMES SYSTEM DATABASE MIGRATIONS
+-- ============================================================================
+
+-- 1. Create games table
+CREATE TABLE IF NOT EXISTS public.games (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
+  game_type TEXT NOT NULL CHECK (game_type IN ('tictactoe', 'rps', 'emojiguess', 'wouldyourather', 'battleship', 'wordguess')),
+  created_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  opponent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'completed', 'cancelled')),
+  state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  winner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. Create game_private_states table
+CREATE TABLE IF NOT EXISTS public.game_private_states (
+  game_id UUID REFERENCES public.games(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  private_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  PRIMARY KEY (game_id, user_id)
+);
+
+-- 3. Enable RLS on games and game_private_states
+ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_private_states ENABLE ROW LEVEL SECURITY;
+
+-- 4. Create RLS policies for games
+DROP POLICY IF EXISTS "Allow select on games for conversation members" ON public.games;
+CREATE POLICY "Allow select on games for conversation members"
+  ON public.games FOR SELECT
+  TO authenticated
+  USING (is_conversation_member(conversation_id));
+
+DROP POLICY IF EXISTS "Allow insert on games for conversation members" ON public.games;
+CREATE POLICY "Allow insert on games for conversation members"
+  ON public.games FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    is_conversation_member(conversation_id) AND
+    created_by = auth.uid()
+  );
+
+DROP POLICY IF EXISTS "Allow update on games for conversation members" ON public.games;
+CREATE POLICY "Allow update on games for conversation members"
+  ON public.games FOR UPDATE
+  TO authenticated
+  USING (is_conversation_member(conversation_id))
+  WITH CHECK (is_conversation_member(conversation_id));
+
+-- 5. Create RLS policies for game_private_states
+DROP POLICY IF EXISTS "Allow select on own private state" ON public.game_private_states;
+CREATE POLICY "Allow select on own private state"
+  ON public.game_private_states FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Allow all on own private state" ON public.game_private_states;
+CREATE POLICY "Allow all on own private state"
+  ON public.game_private_states FOR ALL
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- 6. Add game_id and update message_type check constraint on messages table
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS game_id UUID REFERENCES public.games(id) ON DELETE CASCADE;
+
+-- Drop old check constraint if it exists
+ALTER TABLE public.messages DROP CONSTRAINT IF EXISTS messages_message_type_check;
+ALTER TABLE public.messages ADD CONSTRAINT messages_message_type_check CHECK (message_type IN ('text', 'image', 'gif', 'sticker', 'game'));
+
+
