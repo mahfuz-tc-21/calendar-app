@@ -34,7 +34,10 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
   const handleChangePrivateAccess = () => {
     onClose()
-    window.location.href = '/calendar?setup=true'
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('change_private_access_trigger', 'true')
+      window.location.href = '/calendar?setup=true'
+    }
   }
 
   const supabase = createClient()

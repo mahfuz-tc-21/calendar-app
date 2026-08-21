@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { X, Gamepad2, ArrowRight } from 'lucide-react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface GamesMenuProps {
   conversationId: string
@@ -48,9 +48,10 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
     onClose()
     
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/create'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
           gameType,

@@ -61,17 +61,7 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       return
     }
 
-    // Only set loading to true if we don't have a cached value for this user yet
-    if (typeof window !== 'undefined') {
-      const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
-      if (cachedHasPasscode === null) {
-        setLoading(true)
-      } else {
-        setHasPasscode(cachedHasPasscode === 'true')
-      }
-    } else {
-      setLoading(true)
-    }
+    setLoading(true)
     
     try {
       const reqHeaders = await getHeaders()
@@ -116,7 +106,6 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
         const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
         if (cachedHasPasscode !== null) {
           setHasPasscode(cachedHasPasscode === 'true')
-          setLoading(false)
         }
       }
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface HitCoord {
   x: number
@@ -27,24 +27,46 @@ interface BattleshipBoardProps {
 export default function BattleshipBoard({ game, currentUserId, setActiveGames }: BattleshipBoardProps) {
   const [selectedShips, setSelectedShips] = useState<{ x: number; y: number }[]>([])
   const [loading, setLoading] = useState(false)
-  const [targetCell, setTargetCell] = useState<{ x: number; y: number } | null>(null)
+  const [privateState, setPrivateState] = useState<{ ships?: { x: number; y: number }[] } | null>(null)
   const [optimisticAttack, setOptimisticAttack] = useState<{ x: number; y: number } | null>(null)
 
-  const { status, turn, ready, hits } = game.state
-  const partnerId = currentUserId === game.created_by ? game.opponent_id : game.created_by
-  const isOwn = game.created_by === currentUserId
-
+  const { status: stage, turn, ready, hits } = game.state
   const myReady = ready[currentUserId]
-  const partnerReady = ready[partnerId]
+  const opponentId = currentUserId === game.created_by ? game.opponent_id : game.created_by
+  const opponentReady = ready[opponentId]
+  const isMyTurn = turn === currentUserId && stage === 'active'
 
   const myHits = hits[currentUserId] || []
-  const opponentHits = hits[partnerId] || [] // hits Opponent made on ME
+  const opponentHits = hits[opponentId] || []
+  const isOwn = game.created_by === currentUserId
 
   useEffect(() => {
     setOptimisticAttack(null)
-  }, [hits])
+  }, [myHits])
 
-  const isMyTurn = turn === currentUserId && status === 'active'
+  useEffect(() => {
+    const fetchPrivateState = async () => {
+      try {
+        const { createClient } = require('@/utils/supabase/client')
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('game_private_states')
+          .select('private_state')
+          .eq('game_id', game.id)
+          .eq('user_id', currentUserId)
+          .maybeSingle()
+
+        if (data && !error) {
+          setPrivateState(data.private_state)
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    if (myReady) {
+      fetchPrivateState()
+    }
+  }, [game.id, myReady, currentUserId])
 
   const handleCellSetupSelect = (x: number, y: number) => {
     if (myReady || loading) return
@@ -61,9 +83,10 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
     if (selectedShips.length !== 5 || loading) return
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'submit_layout',
@@ -90,17 +113,16 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
 
   const handleAttack = async (x: number, y: number) => {
     if (!isMyTurn || loading || optimisticAttack) return
-    // Check if already attacked
     if (myHits.some((h) => h.x === x && h.y === y)) return
 
-    // Optimistic Update: Set the cell being targeted instantly
     setOptimisticAttack({ x, y })
 
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'attack',

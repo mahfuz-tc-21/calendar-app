@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface TicTacToeBoardProps {
   game: {
@@ -41,9 +41,10 @@ export default function TicTacToeBoard({ game, currentUserId, setActiveGames }: 
 
     setLoading(idx)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'move',

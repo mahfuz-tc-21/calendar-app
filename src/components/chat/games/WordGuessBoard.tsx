@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface WordGuessBoardProps {
   game: {
@@ -49,9 +49,10 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
       const actionType = isFullWord ? 'guess_word' : 'guess_letter'
       const payloadVal = isFullWord ? { word: cleanInput } : { letter: cleanInput[0] }
 
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: actionType,

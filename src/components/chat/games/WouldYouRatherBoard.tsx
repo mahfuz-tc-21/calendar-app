@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface WouldYouRatherBoardProps {
   game: {
@@ -43,9 +43,10 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
 
     setLoading(choice)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'vote',

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 interface EmojiGuessBoardProps {
   game: {
@@ -47,9 +47,10 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
 
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'submit_guess',
@@ -80,9 +81,10 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
     if (loading) return
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/action'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gameId: game.id,
           action: 'reveal_answer'

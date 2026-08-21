@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Game } from '@/hooks/useChat'
 import { ShieldAlert, Award, RefreshCw } from 'lucide-react'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 
 // Lazy-load the game boards
 const TicTacToeBoard = dynamic(() => import('./games/TicTacToeBoard'), {
@@ -48,7 +48,6 @@ interface GameCardProps {
 export default function GameCard({ message, isOwn, activeGames, setActiveGames, currentUserId }: GameCardProps) {
   const gameId = message.game_id
   const game = gameId ? activeGames[gameId] : null
-
   const [loading, setLoading] = useState(false)
   const [rematchLoading, setRematchLoading] = useState(false)
 
@@ -72,9 +71,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
   const handleAccept = async () => {
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/accept'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId })
       })
       const data = await res.json()
@@ -97,9 +97,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
   const handleDecline = async () => {
     setLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/decline'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId })
       })
       const data = await res.json()
@@ -122,9 +123,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
   const handlePlayAgain = async () => {
     setRematchLoading(true)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch(getApiUrl('/api/games/create'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: game.conversation_id,
           gameType: game.game_type,

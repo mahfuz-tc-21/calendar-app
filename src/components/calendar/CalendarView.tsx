@@ -41,9 +41,26 @@ export default function CalendarView() {
   const [confirmSecret, setConfirmSecret] = useState<string[]>([])
 
   useEffect(() => {
+    let isSetupTriggered = false
+    if (typeof window !== 'undefined') {
+      const trigger = localStorage.getItem('change_private_access_trigger')
+      if (trigger === 'true') {
+        isSetupTriggered = true
+        localStorage.removeItem('change_private_access_trigger')
+      }
+      if (window.location.search.includes('setup=true')) {
+        isSetupTriggered = true
+      }
+    }
+
+    if (isSetupTriggered && !isOffline) {
+      setIsSetupMode(true)
+      setSetupStep('pick_1')
+      return
+    }
+
     if (!privateSpaceLoading) {
-      // If offline, do NOT show setup mode (keeps it stealth and avoids exposing the secret setup banner)
-      const mode = !isOffline && ((typeof window !== 'undefined' && window.location.search.includes('setup=true')) || !hasPasscode)
+      const mode = !isOffline && !hasPasscode
       setIsSetupMode(mode)
       if (mode) {
         setSetupStep('pick_1')
@@ -330,6 +347,8 @@ export default function CalendarView() {
                 const handleDayClick = async () => {
                   setSelectedDate(dateStr)
 
+                  const getDayNumber = (d: string) => d.split('-')[2]
+
                   if (isSetupMode) {
                     if (setupStep === 'pick_1') {
                       setTempSecret([dateStr])
@@ -346,7 +365,7 @@ export default function CalendarView() {
                       setSetupStep('confirm_2')
                     } else if (setupStep === 'confirm_2') {
                       if (tempSecret[0] === confirmSecret[0] && tempSecret[1] === dateStr) {
-                        const success = await setupPasscode(`${tempSecret[0]},${tempSecret[1]}`)
+                        const success = await setupPasscode(`${getDayNumber(tempSecret[0])},${getDayNumber(tempSecret[1])}`)
                         if (success) {
                           setIsSetupMode(false)
                           setSetupStep('idle')
@@ -380,7 +399,7 @@ export default function CalendarView() {
                     const seq = [clickSequence[0], dateStr]
                     setClickSequence([]) // reset immediately
                     
-                    const success = await unlock(`${seq[0]},${seq[1]}`, true) // silent=true
+                    const success = await unlock(`${getDayNumber(seq[0])},${getDayNumber(seq[1])}`, true) // silent=true
                     if (success) {
                       router.push('/private')
                     }
