@@ -44,7 +44,9 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
   const [wordCategory, setWordCategory] = useState('')
 
   const handleCreateGame = async (gameType: string, options?: any) => {
-    setLoading(gameType)
+    // Close the menu immediately to make the UI feel fast and responsive
+    onClose()
+    
     try {
       const res = await fetch(getApiUrl('/api/games/create'), {
         method: 'POST',
@@ -57,16 +59,12 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
         })
       })
       const data = await res.json()
-      if (res.ok && data.success) {
-        onClose()
-      } else {
+      if (!res.ok || !data.success) {
         alert(data.error || 'Failed to initialize game')
       }
     } catch (e) {
       console.error(e)
       alert('Network error initiating game')
-    } finally {
-      setLoading(null)
     }
   }
 
@@ -330,10 +328,10 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Category (Optional)</label>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Hint / Category (Optional)</label>
                     <input
                       type="text"
-                      placeholder="e.g. Animals"
+                      placeholder="e.g. Animals, Movies, Country"
                       value={wordCategory}
                       onChange={(e) => setWordCategory(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary"

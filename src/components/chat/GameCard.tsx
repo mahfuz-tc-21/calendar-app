@@ -41,10 +41,11 @@ interface GameCardProps {
   }
   isOwn: boolean
   activeGames: Record<string, Game>
+  setActiveGames: React.Dispatch<React.SetStateAction<Record<string, Game>>>
   currentUserId: string
 }
 
-export default function GameCard({ message, isOwn, activeGames, currentUserId }: GameCardProps) {
+export default function GameCard({ message, isOwn, activeGames, setActiveGames, currentUserId }: GameCardProps) {
   const gameId = message.game_id
   const game = gameId ? activeGames[gameId] : null
 
@@ -77,7 +78,12 @@ export default function GameCard({ message, isOwn, activeGames, currentUserId }:
         body: JSON.stringify({ gameId })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success && data.game) {
+        setActiveGames((prev) => ({
+          ...prev,
+          [gameId]: data.game
+        }))
+      } else {
         alert(data.error || 'Failed to accept invitation')
       }
     } catch (e) {
@@ -97,8 +103,13 @@ export default function GameCard({ message, isOwn, activeGames, currentUserId }:
         body: JSON.stringify({ gameId })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
-        alert(data.error || 'Failed to decline invitation')
+      if (res.ok && data.success && data.game) {
+        setActiveGames((prev) => ({
+          ...prev,
+          [gameId]: data.game
+        }))
+      } else {
+        alert(data.error || 'Failed to decline or cancel game')
       }
     } catch (e) {
       console.error(e)
@@ -132,7 +143,12 @@ export default function GameCard({ message, isOwn, activeGames, currentUserId }:
         })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success && data.game) {
+        setActiveGames((prev) => ({
+          ...prev,
+          [data.game.id]: data.game
+        }))
+      } else {
         alert(data.error || 'Failed to start play again match')
       }
     } catch (e) {
@@ -210,9 +226,20 @@ export default function GameCard({ message, isOwn, activeGames, currentUserId }:
               </button>
             </div>
           ) : (
-            <span className="inline-block text-[10px] font-semibold bg-white/10 px-2.5 py-1 rounded-full animate-pulse">
-              Waiting for opponent...
-            </span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="inline-block text-[10px] font-semibold bg-white/10 px-2.5 py-1 rounded-full animate-pulse">
+                Waiting for opponent...
+              </span>
+              <button
+                disabled={loading}
+                onClick={handleDecline}
+                className={`text-[9px] font-bold opacity-60 hover:opacity-100 transition-all cursor-pointer ${
+                  isOwn ? 'text-white/80 hover:text-white underline' : 'text-gray-600 hover:text-gray-800 underline'
+                }`}
+              >
+                Cancel Invitation
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -220,19 +247,35 @@ export default function GameCard({ message, isOwn, activeGames, currentUserId }:
       {/* Cancelled screen */}
       {game.status === 'cancelled' && (
         <div className="text-center py-1">
-          <p className="text-xs opacity-75">Invitation declined</p>
+          <p className="text-xs opacity-75">Match cancelled or declined</p>
         </div>
       )}
 
       {/* Active gameplay screen */}
       {game.status === 'active' && (
         <div className="space-y-2">
-          {game.game_type === 'tictactoe' && <TicTacToeBoard game={game} currentUserId={currentUserId} />}
-          {game.game_type === 'rps' && <RockPaperScissorsBoard game={game} currentUserId={currentUserId} />}
-          {game.game_type === 'emojiguess' && <EmojiGuessBoard game={game} currentUserId={currentUserId} />}
-          {game.game_type === 'wouldyourather' && <WouldYouRatherBoard game={game} currentUserId={currentUserId} />}
-          {game.game_type === 'battleship' && <BattleshipBoard game={game} currentUserId={currentUserId} />}
-          {game.game_type === 'wordguess' && <WordGuessBoard game={game} currentUserId={currentUserId} />}
+          {game.game_type === 'tictactoe' && <TicTacToeBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'rps' && <RockPaperScissorsBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'emojiguess' && <EmojiGuessBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'wouldyourather' && <WouldYouRatherBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'battleship' && <BattleshipBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'wordguess' && <WordGuessBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          
+          <div className={`flex justify-center pt-2 border-t mt-2 ${
+            isOwn ? 'border-white/10' : 'border-gray-200'
+          }`}>
+            <button
+              disabled={loading}
+              onClick={handleDecline}
+              className={`text-[10px] font-bold opacity-60 hover:opacity-100 transition-all flex items-center gap-1 px-2.5 py-1 rounded-lg cursor-pointer ${
+                isOwn 
+                  ? 'text-white bg-black/10 hover:bg-black/25' 
+                  : 'text-gray-700 bg-gray-200/50 hover:bg-gray-200'
+              }`}
+            >
+              Quit Game
+            </button>
+          </div>
         </div>
       )}
 

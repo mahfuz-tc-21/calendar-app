@@ -1,6 +1,4 @@
-'use client'
-
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getApiUrl } from '@/utils/api'
 
 interface WordGuessBoardProps {
@@ -19,19 +17,32 @@ interface WordGuessBoardProps {
     created_by: string
   }
   currentUserId: string
+  setActiveGames?: React.Dispatch<React.SetStateAction<Record<string, any>>>
 }
 
-export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardProps) {
+export default function WordGuessBoard({ game, currentUserId, setActiveGames }: WordGuessBoardProps) {
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [optimisticGuesses, setOptimisticGuesses] = useState<string[] | null>(null)
 
   const isCreator = game.created_by === currentUserId
   const { category, wordLength, guesses = [], attemptsLeft, maxAttempts, secretWord } = game.state
+
+  useEffect(() => {
+    setOptimisticGuesses(null)
+  }, [guesses])
+
+  const activeGuesses = optimisticGuesses || guesses
 
   const handleGuessSubmit = async (e: React.FormEvent, isFullWord = false) => {
     e.preventDefault()
     const cleanInput = inputText.trim().toUpperCase()
     if (!cleanInput || loading) return
+
+    // Optimistic Update: Append guess to list and clear input instantly
+    const cleanGuess = isFullWord ? `GUESS: ${cleanInput}` : cleanInput[0]
+    setOptimisticGuesses([...activeGuesses, cleanGuess])
+    setInputText('')
 
     setLoading(true)
     try {
@@ -48,12 +59,19 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
         })
       })
       const data = await res.json()
-      if (res.ok && data.success) {
-        setInputText('')
+      if (res.ok && data.success && data.game) {
+        if (setActiveGames) {
+          setActiveGames((prev) => ({
+            ...prev,
+            [data.game.id]: data.game
+          }))
+        }
       } else {
+        setOptimisticGuesses(null) // Rollback on error
         alert(data.error || 'Failed to submit guess')
       }
     } catch (e) {
+      setOptimisticGuesses(null) // Rollback on error
       console.error(e)
     } finally {
       setLoading(false)
@@ -62,6 +80,9 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
 
   // Generate word placeholder
   const renderPlaceholder = () => {
+    const textClass = isCreator ? 'text-white' : 'text-gray-800'
+    const borderClass = isCreator ? 'border-white/30' : 'border-gray-400'
+
     if (game.status === 'completed' && secretWord) {
       return secretWord.split('').map((char, idx) => (
         <span key={idx} className="border-b-2 border-yellow-300 font-black text-sm uppercase px-1 text-yellow-300">
@@ -73,9 +94,9 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
     // Hide secret word, only show correctly guessed letters
     if (secretWord) {
       return secretWord.split('').map((char, idx) => {
-        const isGuessed = guesses.includes(char.toUpperCase())
+        const isGuessed = activeGuesses.includes(char.toUpperCase())
         return (
-          <span key={idx} className="border-b-2 border-white/30 font-black text-sm uppercase px-1 min-w-[12px] text-center">
+          <span key={idx} className={`border-b-2 font-black text-sm uppercase px-1 min-w-[12px] text-center ${borderClass} ${textClass}`}>
             {char === ' ' ? '\u00A0' : isGuessed ? char : '_'}
           </span>
         )
@@ -84,26 +105,36 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
 
     // Fallback if secretWord is hidden from client
     return Array.from({ length: wordLength }).map((_, idx) => (
-      <span key={idx} className="border-b-2 border-white/30 font-black text-sm uppercase px-1 min-w-[12px] text-center">
-        {guesses.includes(String(idx)) ? '?' : '_'}
+      <span key={idx} className={`border-b-2 font-black text-sm uppercase px-1 min-w-[12px] text-center ${borderClass} ${textClass}`}>
+        {activeGuesses.includes(String(idx)) ? '?' : '_'}
       </span>
     ))
   }
 
   // Split guesses into letters and words
-  const guessedLetters = guesses.filter(g => g.length === 1)
-  const guessedWords = guesses.filter(g => g.startsWith('GUESS: ')).map(g => g.replace('GUESS: ', ''))
+  const guessedLetters = activeGuesses.filter(g => g.length === 1)
+  const guessedWords = activeGuesses.filter(g => g.startsWith('GUESS: ')).map(g => g.replace('GUESS: ', ''))
 
   return (
     <div className="flex flex-col space-y-3.5 w-full">
-      {/* Category banner */}
-      <div className="text-center py-2.5 bg-white/5 rounded-xl border border-white/10 flex flex-col items-center">
-        <span className="text-[9px] font-bold opacity-75 uppercase tracking-wider">Category</span>
-        <span className="text-xs font-black capitalize text-cyan-300">{category}</span>
+      {/* Category/Hint banner */}
+      <div className={`text-center py-2.5 rounded-xl border flex flex-col items-center ${
+        isCreator 
+          ? 'bg-white/5 border-white/10 text-white' 
+          : 'bg-black/5 border-gray-200 text-gray-800'
+      }`}>
+        <span className="text-[9px] font-bold opacity-75 uppercase tracking-wider">Hint</span>
+        <span className={`text-xs font-black capitalize ${
+          isCreator ? 'text-cyan-300' : 'text-blue-600'
+        }`}>{category}</span>
       </div>
 
       {/* Word Placeholder display */}
-      <div className="flex justify-center gap-1 py-3 bg-black/15 rounded-xl border border-white/5 flex-wrap">
+      <div className={`flex justify-center gap-1 py-3 rounded-xl border flex-wrap ${
+        isCreator 
+          ? 'bg-black/15 border-white/5' 
+          : 'bg-black/5 border-gray-200'
+      }`}>
         {renderPlaceholder()}
       </div>
 
@@ -121,13 +152,13 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   disabled={loading}
-                  className="flex-1 px-3 py-2 border border-white/10 bg-white/5 text-white rounded-xl text-xs focus:outline-none focus:border-white/30 placeholder-white/30 min-h-[36px]"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 bg-white text-gray-800 rounded-xl text-xs focus:outline-none focus:border-gray-300 placeholder-gray-400 min-h-[36px]"
                   required
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-white text-blue-600 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors cursor-pointer min-h-[36px]"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[36px]"
                 >
                   Guess
                 </button>
@@ -141,13 +172,13 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   disabled={loading}
-                  className="flex-1 px-3 py-2 border border-white/10 bg-white/5 text-white rounded-xl text-xs focus:outline-none focus:border-white/30 placeholder-white/30 min-h-[36px]"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 bg-white text-gray-800 rounded-xl text-xs focus:outline-none focus:border-gray-300 placeholder-gray-400 min-h-[36px]"
                   required
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/5 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[36px]"
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[36px]"
                 >
                   Solve
                 </button>
@@ -163,9 +194,11 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
 
           {/* Attempts counter */}
           <div className="flex justify-between items-center px-1">
-            <span className="text-[9px] opacity-75 font-semibold">Attempts left:</span>
+            <span className={`text-[9px] font-semibold ${isCreator ? 'opacity-75' : 'text-gray-500'}`}>Attempts left:</span>
             <span className={`text-xs font-black ${
-              attemptsLeft <= 2 ? 'text-red-300' : 'text-green-300'
+              attemptsLeft <= 2 
+                ? (isCreator ? 'text-red-300' : 'text-red-600') 
+                : (isCreator ? 'text-green-300' : 'text-green-600')
             }`}>
               {attemptsLeft}/{maxAttempts}
             </span>
@@ -173,13 +206,21 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
 
           {/* Guesses log */}
           {(guessedLetters.length > 0 || guessedWords.length > 0) && (
-            <div className="bg-black/10 p-2.5 rounded-xl border border-white/5 space-y-1.5">
+            <div className={`p-2.5 rounded-xl border ${
+              isCreator 
+                ? 'bg-black/10 border-white/5' 
+                : 'bg-black/5 border-gray-200/55'
+            } space-y-1.5`}>
               {guessedLetters.length > 0 && (
                 <div>
-                  <span className="text-[8px] font-bold opacity-60 uppercase tracking-wider block mb-0.5">Guessed Letters</span>
+                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-gray-500'}`}>Guessed Letters</span>
                   <div className="flex flex-wrap gap-1">
                     {guessedLetters.map((l, idx) => (
-                      <span key={idx} className="bg-white/5 border border-white/5 px-2 py-0.5 rounded-md text-[9px] font-bold text-gray-300">
+                      <span key={idx} className={`border px-2 py-0.5 rounded-md text-[9px] font-bold ${
+                        isCreator 
+                          ? 'bg-white/5 border-white/5 text-gray-300' 
+                          : 'bg-white border-gray-200 text-gray-700'
+                      }`}>
                         {l}
                       </span>
                     ))}
@@ -188,10 +229,12 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
               )}
               {guessedWords.length > 0 && (
                 <div>
-                  <span className="text-[8px] font-bold opacity-60 uppercase tracking-wider block mb-0.5">Guessed Words</span>
+                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-gray-500'}`}>Guessed Words</span>
                   <div className="flex flex-col gap-1">
                     {guessedWords.map((w, idx) => (
-                      <span key={idx} className="text-[9px] font-medium text-red-300 line-through">
+                      <span key={idx} className={`text-[9px] font-medium line-through ${
+                        isCreator ? 'text-red-300' : 'text-red-600'
+                      }`}>
                         {w}
                       </span>
                     ))}
@@ -205,9 +248,15 @@ export default function WordGuessBoard({ game, currentUserId }: WordGuessBoardPr
 
       {/* Completed state */}
       {game.status === 'completed' && secretWord && (
-        <div className="bg-black/10 p-3 rounded-2xl text-center space-y-1 border border-white/5">
+        <div className={`p-3 rounded-2xl text-center space-y-1 border ${
+          isCreator 
+            ? 'bg-black/10 border-white/5 text-white' 
+            : 'bg-black/5 border-gray-200 text-gray-800'
+        }`}>
           <span className="opacity-75 block text-[9px]">Secret Word</span>
-          <span className="font-extrabold capitalize text-sm text-yellow-300">{secretWord}</span>
+          <span className={`font-extrabold capitalize text-sm ${
+            isCreator ? 'text-yellow-300' : 'text-blue-600'
+          }`}>{secretWord}</span>
         </div>
       )}
     </div>

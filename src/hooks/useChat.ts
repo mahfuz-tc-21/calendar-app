@@ -273,6 +273,18 @@ export function useChat() {
     })
   }, [user])
 
+  // Hydrate conversations list from localStorage instantly on user change
+  useEffect(() => {
+    if (user && typeof window !== 'undefined') {
+      const cached = localStorage.getItem('conversations_' + user.id)
+      if (cached) {
+        try {
+          setConversations(JSON.parse(cached))
+        } catch {}
+      }
+    }
+  }, [user])
+
   // 1. Fetch conversations list for user
   const fetchConversations = useCallback(async () => {
     if (!user) return
@@ -290,17 +302,20 @@ export function useChat() {
 
       if (!memberRows || memberRows.length === 0) {
         setConversations([])
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('conversations_' + user.id)
+        }
         setLoadingConversations(false)
         return
       }
 
       const conversationIds = memberRows.map((r: any) => r.conversation_id)
 
-      // Fetch unread count, members details and message timestamps in parallel
-      const [unreadResult, membersResult, latestMessagesResult] = await Promise.all([
+      // Fetch unread count and member/profile details in parallel (eliminated latestMessagesResult table scan)
+      const [unreadResult, membersResult] = await Promise.all([
         supabase
           .from('messages')
-          .select('conversation_id, created_at')
+          .select('conversation_id, id')
           .in('conversation_id', conversationIds)
           .neq('sender_id', user.id)
           .is('read_at', null),
@@ -310,30 +325,27 @@ export function useChat() {
             conversation_id,
             user_id,
             joined_at,
+            conversations (
+              updated_at
+            ),
             profiles (
               id,
               username,
               display_name,
               avatar_url,
               created_at,
-              updated_at
+              updated_at,
+              active_status_enabled
             )
           `)
-          .in('conversation_id', conversationIds),
-        supabase
-          .from('messages')
-          .select('conversation_id, created_at')
           .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: false })
       ])
 
       const { data: unreadRows, error: unreadErr } = unreadResult
       const { data: allMembers, error: membersErr } = membersResult
-      const { data: latestMsgRows, error: latestMsgErr } = latestMessagesResult
 
       if (unreadErr) throw unreadErr
       if (membersErr) throw membersErr
-      if (latestMsgErr) throw latestMsgErr
 
       const unreadMap: Record<string, number> = {}
       unreadRows?.forEach((row: any) => {
@@ -343,21 +355,13 @@ export function useChat() {
         const lastReadTimeStr = typeof window !== 'undefined' ? localStorage.getItem(`last_read_time_${convId}`) : null
         if (lastReadTimeStr) {
           const lastReadTime = new Date(lastReadTimeStr)
-          const messageTime = new Date(row.created_at)
+          const messageTime = new Date(row.created_at || Date.now()) // default to now if missing
           if (messageTime <= lastReadTime) {
             return
           }
         }
 
         unreadMap[convId] = (unreadMap[convId] || 0) + 1
-      })
-
-      // Map each conversation ID to its latest message timestamp
-      const latestMessageTimeMap: Record<string, string> = {}
-      latestMsgRows?.forEach((row: any) => {
-        if (!latestMessageTimeMap[row.conversation_id]) {
-          latestMessageTimeMap[row.conversation_id] = row.created_at
-        }
       })
 
       // Parse conversations and find the chat partner (the other user)
@@ -367,10 +371,11 @@ export function useChat() {
       allMembers?.forEach((row: any) => {
         if (row.user_id !== user.id && !processedIds.has(row.conversation_id)) {
           processedIds.add(row.conversation_id)
+          const convUpdatedAt = row.conversations?.updated_at || row.joined_at || ''
           list.push({
             id: row.conversation_id,
-            created_at: '', // placeholder, can query later if needed
-            updated_at: latestMessageTimeMap[row.conversation_id] || row.joined_at || '',
+            created_at: '',
+            updated_at: convUpdatedAt,
             partner: row.profiles as Profile,
             unreadCount: unreadMap[row.conversation_id] || 0,
           })
@@ -385,6 +390,9 @@ export function useChat() {
       })
 
       setConversations(list)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('conversations_' + user.id, JSON.stringify(list))
+      }
     } catch (err: any) {
       console.error('Error fetching conversations:', err?.message || err?.details || err)
       showToast('Failed to load conversations', 'error')
@@ -536,7 +544,30 @@ export function useChat() {
   // 3. Fetch messages for active conversation
   const fetchMessages = useCallback(async (convId: string) => {
     if (!user) return
-    setLoadingMessages(true)
+
+    // 1. Instantly load from local storage cache (Stale-While-Revalidate)
+    let hasCache = false
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`chat_messages_${convId}`)
+        if (cached) {
+          const parsedMsgs: Message[] = JSON.parse(cached)
+          const pendingForThisConv = offlineQueueRef.current.filter(
+            (m) => m.conversation_id === convId
+          )
+          setMessages([...parsedMsgs, ...pendingForThisConv])
+          hasCache = true
+        }
+      } catch (e) {
+        console.error('Error parsing cached messages:', e)
+      }
+    }
+
+    // Only show loading spinner if we don't have any cached messages to display
+    if (!hasCache) {
+      setLoadingMessages(true)
+    }
+
     try {
       // Get the current user's membership details to find history_cleared_at
       const { data: memberInfo } = await supabase
@@ -568,13 +599,13 @@ export function useChat() {
 
         const [reactionResult, gamesResult] = await Promise.all([
           supabase
-            .from('message_reactions')
-            .select('id, message_id, user_id, reaction, created_at')
-            .in('message_id', msgIds),
+             .from('message_reactions')
+             .select('id, message_id, user_id, reaction, created_at')
+             .in('message_id', msgIds),
           gameIds.length > 0
             ? supabase
                 .from('games')
-                .select('*')
+                .select('id, conversation_id, game_type, created_by, opponent_id, status, state, winner_id, created_at, updated_at')
                 .in('id', gameIds)
             : Promise.resolve({ data: [], error: null })
         ])
@@ -609,6 +640,11 @@ export function useChat() {
       )
       setMessages([...finalMsgs, ...pendingForThisConv])
       setHasMoreMessages(msgRows ? msgRows.length === 15 : false)
+
+      // Save to cache
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`chat_messages_${convId}`, JSON.stringify(finalMsgs))
+      }
       
       // Mark messages as read and delivered when loaded
       if (finalMsgs.length > 0 && finalMsgs.some((m: any) => m.sender_id !== user?.id && !m.read_at)) {
@@ -740,35 +776,38 @@ export function useChat() {
         },
         (payload: any) => {
           const newMsg = payload.new as Message
-          if (newMsg.sender_id === user.id) return
 
-          // If the chat room is currently open, load the message in the feed and mark as Seen
+          // If the chat room is currently open, load the message in the feed
           if (activeConversationRef.current?.id === newMsg.conversation_id) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev
               return [...prev, newMsg]
             })
-            markMessagesAsRead(newMsg.conversation_id, newMsg.created_at)
             
-            // Mark read and delivered in DB
-            const readReceiptsEnabled = profileRef.current?.read_receipts_enabled !== false
-            if (readReceiptsEnabled) {
-              supabase
-                .from('messages')
-                .update({ 
-                  read_at: new Date().toISOString(),
-                  delivered_at: new Date().toISOString()
-                })
-                .eq('id', newMsg.id)
-                .then()
-            } else {
-              supabase
-                .from('messages')
-                .update({ 
-                  delivered_at: new Date().toISOString()
-                })
-                .eq('id', newMsg.id)
-                .then()
+            // Only update read/delivery status if the message is from someone else
+            if (newMsg.sender_id !== user.id) {
+              markMessagesAsRead(newMsg.conversation_id, newMsg.created_at)
+              
+              // Mark read and delivered in DB
+              const readReceiptsEnabled = profileRef.current?.read_receipts_enabled !== false
+              if (readReceiptsEnabled) {
+                supabase
+                  .from('messages')
+                  .update({ 
+                    read_at: new Date().toISOString(),
+                    delivered_at: new Date().toISOString()
+                  })
+                  .eq('id', newMsg.id)
+                  .then()
+              } else {
+                supabase
+                  .from('messages')
+                  .update({ 
+                    delivered_at: new Date().toISOString()
+                  })
+                  .eq('id', newMsg.id)
+                  .then()
+              }
             }
 
             // Move conversation to top in conversations list
@@ -779,24 +818,34 @@ export function useChat() {
               return [target, ...filtered]
             })
           } else {
-            // App is open (online), but conversation is not: mark as Delivered in DB
-            supabase
-              .from('messages')
-              .update({ delivered_at: new Date().toISOString() })
-              .eq('id', newMsg.id)
-              .then()
+            if (newMsg.sender_id !== user.id) {
+              // App is open (online), but conversation is not: mark as Delivered in DB
+              supabase
+                .from('messages')
+                .update({ delivered_at: new Date().toISOString() })
+                .eq('id', newMsg.id)
+                .then()
 
-            // Move conversation to top and increment local conversation unread count
-            setConversations((prev) => {
-              const target = prev.find((c) => c.id === newMsg.conversation_id)
-              if (!target) return prev
-              const updated = { 
-                ...target, 
-                unreadCount: (target.unreadCount || 0) + 1 
-              }
-              const filtered = prev.filter((c) => c.id !== newMsg.conversation_id)
-              return [updated, ...filtered]
-            })
+              // Move conversation to top and increment local conversation unread count
+              setConversations((prev) => {
+                const target = prev.find((c) => c.id === newMsg.conversation_id)
+                if (!target) return prev
+                const updated = { 
+                  ...target, 
+                  unreadCount: (target.unreadCount || 0) + 1 
+                }
+                const filtered = prev.filter((c) => c.id !== newMsg.conversation_id)
+                return [updated, ...filtered]
+              })
+            } else {
+              // For own messages, just move conversation to the top
+              setConversations((prev) => {
+                const target = prev.find((c) => c.id === newMsg.conversation_id)
+                if (!target) return prev
+                const filtered = prev.filter((c) => c.id !== newMsg.conversation_id)
+                return [target, ...filtered]
+              })
+            }
           }
         }
       )

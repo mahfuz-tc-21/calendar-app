@@ -1,6 +1,4 @@
-'use client'
-
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getApiUrl } from '@/utils/api'
 
 interface HitCoord {
@@ -23,21 +21,28 @@ interface BattleshipBoardProps {
     opponent_id: string
   }
   currentUserId: string
+  setActiveGames?: React.Dispatch<React.SetStateAction<Record<string, any>>>
 }
 
-export default function BattleshipBoard({ game, currentUserId }: BattleshipBoardProps) {
+export default function BattleshipBoard({ game, currentUserId, setActiveGames }: BattleshipBoardProps) {
   const [selectedShips, setSelectedShips] = useState<{ x: number; y: number }[]>([])
   const [loading, setLoading] = useState(false)
   const [targetCell, setTargetCell] = useState<{ x: number; y: number } | null>(null)
+  const [optimisticAttack, setOptimisticAttack] = useState<{ x: number; y: number } | null>(null)
 
   const { status, turn, ready, hits } = game.state
   const partnerId = currentUserId === game.created_by ? game.opponent_id : game.created_by
+  const isOwn = game.created_by === currentUserId
 
   const myReady = ready[currentUserId]
   const partnerReady = ready[partnerId]
 
   const myHits = hits[currentUserId] || []
   const opponentHits = hits[partnerId] || [] // hits Opponent made on ME
+
+  useEffect(() => {
+    setOptimisticAttack(null)
+  }, [hits])
 
   const isMyTurn = turn === currentUserId && status === 'active'
 
@@ -66,7 +71,14 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
         })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success && data.game) {
+        if (setActiveGames) {
+          setActiveGames((prev) => ({
+            ...prev,
+            [data.game.id]: data.game
+          }))
+        }
+      } else {
         alert(data.error || 'Failed to submit fleet layout')
       }
     } catch (e) {
@@ -77,9 +89,13 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
   }
 
   const handleAttack = async (x: number, y: number) => {
-    if (!isMyTurn || loading) return
+    if (!isMyTurn || loading || optimisticAttack) return
     // Check if already attacked
     if (myHits.some((h) => h.x === x && h.y === y)) return
+
+    // Optimistic Update: Set the cell being targeted instantly
+    setOptimisticAttack({ x, y })
+
     setLoading(true)
     try {
       const res = await fetch(getApiUrl('/api/games/action'), {
@@ -92,10 +108,19 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
         })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success && data.game) {
+        if (setActiveGames) {
+          setActiveGames((prev) => ({
+            ...prev,
+            [data.game.id]: data.game
+          }))
+        }
+      } else {
+        setOptimisticAttack(null) // Rollback on error
         alert(data.error || 'Attack failed')
       }
     } catch (e) {
+      setOptimisticAttack(null) // Rollback on error
       console.error(e)
     } finally {
       setLoading(false)
@@ -130,7 +155,11 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
           </span>
 
           {/* Grid for setup */}
-          <div className="grid grid-cols-10 gap-0.5 bg-white/5 p-1 rounded-xl border border-white/10 select-none">
+          <div className={`grid grid-cols-10 gap-0.5 p-1 rounded-xl border select-none ${
+            isOwn 
+              ? 'bg-white/5 border-white/10' 
+              : 'bg-black/5 border-gray-250'
+          }`}>
             {Array.from({ length: 10 }).map((_, y) => (
               <React.Fragment key={y}>
                 {Array.from({ length: 10 }).map((_, x) => {
@@ -143,7 +172,7 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
                       className={`w-[18px] h-[18px] rounded-[3px] text-[8px] transition-all flex items-center justify-center font-bold ${
                         isSelected 
                           ? 'bg-yellow-400 border border-yellow-300' 
-                          : 'bg-white/10 hover:bg-white/20'
+                          : (isOwn ? 'bg-white/10 hover:bg-white/20' : 'bg-white border border-gray-200 hover:bg-gray-100')
                       }`}
                     />
                   )
@@ -156,7 +185,11 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
             <button
               onClick={handleSubmitLayout}
               disabled={selectedShips.length !== 5 || loading}
-              className="w-full py-2 bg-white text-blue-600 rounded-xl text-xs font-bold shadow hover:bg-gray-50 disabled:opacity-50 transition-all cursor-pointer min-h-[36px]"
+              className={`w-full py-2 rounded-xl text-xs font-bold shadow disabled:opacity-50 transition-all cursor-pointer min-h-[36px] ${
+                isOwn 
+                  ? 'bg-white text-blue-600 hover:bg-gray-50' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
               {loading ? 'Deploying...' : 'Deploy Fleet'}
             </button>
@@ -169,7 +202,9 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
         <div className="flex flex-col items-center space-y-4 w-full">
           {status === 'active' && (
             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-              isMyTurn ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-gray-300'
+              isMyTurn 
+                ? 'bg-green-500/20 text-green-500' 
+                : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 text-gray-500')
             }`}>
               {isMyTurn ? '🟢 Your Turn to Attack' : '⏳ Opponent\'s Turn'}
             </span>
@@ -178,28 +213,35 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
           {/* Opponent's Grid (Targeting Grid) */}
           <div className="flex flex-col items-center space-y-1">
             <span className="text-[9px] font-bold opacity-75">Target Grid</span>
-            <div className="grid grid-cols-10 gap-0.5 bg-red-950/20 p-1.5 rounded-xl border border-red-500/20 select-none">
+            <div className={`grid grid-cols-10 gap-0.5 p-1.5 rounded-xl border select-none ${
+              isOwn 
+                ? 'bg-red-950/20 border-red-500/20' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
               {Array.from({ length: 10 }).map((_, y) => (
                 <React.Fragment key={y}>
                   {Array.from({ length: 10 }).map((_, x) => {
                     const statusVal = getOpponentCellStatus(x, y)
-                    const canAttack = isMyTurn && statusVal === '' && !loading
+                    const isTargeting = optimisticAttack && optimisticAttack.x === x && optimisticAttack.y === y
+                    const canAttack = isMyTurn && statusVal === '' && !loading && !optimisticAttack
                     return (
                       <button
                         key={`${x}-${y}`}
-                        disabled={!canAttack}
+                        disabled={!canAttack && !isTargeting}
                         onClick={() => handleAttack(x, y)}
                         className={`w-[18px] h-[18px] rounded-[3px] text-[10px] flex items-center justify-center transition-all ${
-                          statusVal === '💥' 
-                            ? 'bg-red-500' 
-                            : statusVal === '🌊' 
-                              ? 'bg-blue-900/50' 
-                              : canAttack 
-                                ? 'bg-white/10 hover:bg-red-500/20 cursor-crosshair' 
-                                : 'bg-white/5'
+                          isTargeting
+                            ? 'bg-yellow-500 text-white animate-pulse'
+                            : statusVal === '💥' 
+                              ? 'bg-red-500 text-white' 
+                              : statusVal === '🌊' 
+                                ? (isOwn ? 'bg-blue-900/50 text-white' : 'bg-blue-100 text-blue-700') 
+                                : canAttack 
+                                  ? (isOwn ? 'bg-white/10 hover:bg-red-500/20 cursor-crosshair' : 'bg-white border border-gray-200 hover:bg-red-500/10 cursor-crosshair') 
+                                  : (isOwn ? 'bg-white/5' : 'bg-white/50 border border-gray-100')
                         }`}
                       >
-                        {statusVal}
+                        {isTargeting ? '🎯' : statusVal}
                       </button>
                     )
                   })}
@@ -211,7 +253,11 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
           {/* Your Grid (My Fleet View) */}
           <div className="flex flex-col items-center space-y-1">
             <span className="text-[9px] font-bold opacity-75">Your Fleet</span>
-            <div className="grid grid-cols-10 gap-0.5 bg-blue-950/20 p-1.5 rounded-xl border border-blue-500/20 select-none">
+            <div className={`grid grid-cols-10 gap-0.5 p-1.5 rounded-xl border select-none ${
+              isOwn 
+                ? 'bg-blue-950/20 border-blue-500/20' 
+                : 'bg-blue-50 border border-blue-200'
+            }`}>
               {Array.from({ length: 10 }).map((_, y) => (
                 <React.Fragment key={y}>
                   {Array.from({ length: 10 }).map((_, x) => {
@@ -223,10 +269,10 @@ export default function BattleshipBoard({ game, currentUserId }: BattleshipBoard
                           statusVal === '💥' 
                             ? 'bg-red-500 text-white font-bold' 
                             : statusVal === '🌊' 
-                              ? 'bg-blue-900/50 text-white font-bold' 
+                              ? (isOwn ? 'bg-blue-900/50 text-white font-bold' : 'bg-blue-100 text-blue-700 font-bold') 
                               : statusVal === '🚢' 
                                 ? 'bg-yellow-400 border border-yellow-300' 
-                                : 'bg-white/5'
+                                : (isOwn ? 'bg-white/5' : 'bg-white border border-gray-100')
                         }`}
                       >
                         {statusVal === '🚢' ? '' : statusVal}

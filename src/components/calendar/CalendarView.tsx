@@ -42,7 +42,8 @@ export default function CalendarView() {
 
   useEffect(() => {
     if (!privateSpaceLoading) {
-      const mode = (typeof window !== 'undefined' && window.location.search.includes('setup=true')) || !hasPasscode
+      // If offline, do NOT show setup mode (keeps it stealth and avoids exposing the secret setup banner)
+      const mode = !isOffline && ((typeof window !== 'undefined' && window.location.search.includes('setup=true')) || !hasPasscode)
       setIsSetupMode(mode)
       if (mode) {
         setSetupStep('pick_1')
@@ -50,7 +51,7 @@ export default function CalendarView() {
         setSetupStep('idle')
       }
     }
-  }, [privateSpaceLoading, hasPasscode])
+  }, [privateSpaceLoading, hasPasscode, isOffline])
 
   useEffect(() => {
     return () => {
@@ -201,11 +202,6 @@ export default function CalendarView() {
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-primary" />
           <span className="font-semibold text-lg tracking-tight text-gray-900">Calendar</span>
-          {isOffline && (
-            <span className="text-[11px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-200 animate-pulse">
-              Offline
-            </span>
-          )}
         </div>
         
         {/* Actions */}

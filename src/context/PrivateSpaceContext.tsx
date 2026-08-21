@@ -40,7 +40,12 @@ interface PrivateSpaceContextType {
 const PrivateSpaceContext = createContext<PrivateSpaceContextType | undefined>(undefined)
 
 export function PrivateSpaceProvider({ children }: { children: React.ReactNode }) {
-  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('private_space_token')
+    }
+    return false
+  })
   const [hasPasscode, setHasPasscode] = useState(false)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
@@ -56,7 +61,17 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       return
     }
 
-    setLoading(true)
+    // Only set loading to true if we don't have a cached value for this user yet
+    if (typeof window !== 'undefined') {
+      const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
+      if (cachedHasPasscode === null) {
+        setLoading(true)
+      } else {
+        setHasPasscode(cachedHasPasscode === 'true')
+      }
+    } else {
+      setLoading(true)
+    }
     
     try {
       const reqHeaders = await getHeaders()
@@ -65,14 +80,27 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
         headers: reqHeaders,
       })
       const checkData = await checkRes.json()
-      setHasPasscode(!!checkData.exists)
+      const exists = !!checkData.exists
+      setHasPasscode(exists)
       setIsUnlocked(!!checkData.unlocked)
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('has_privacy_passcode_' + user.id, exists ? 'true' : 'false')
+      }
       
       if (!checkData.unlocked && typeof window !== 'undefined') {
         localStorage.removeItem('private_space_token')
       }
     } catch (err) {
       console.error('Error checking private space status:', err)
+      // Fallback to local hash existence or cached passcode status when offline
+      if (typeof window !== 'undefined') {
+        const localHash = localStorage.getItem('local_privacy_hash')
+        const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
+        if (localHash || cachedHasPasscode === 'true') {
+          setHasPasscode(true)
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -83,7 +111,13 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       const token = localStorage.getItem('private_space_token')
       if (token) {
         setIsUnlocked(true)
-        setLoading(false)
+      }
+      if (user) {
+        const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
+        if (cachedHasPasscode !== null) {
+          setHasPasscode(cachedHasPasscode === 'true')
+          setLoading(false)
+        }
       }
     }
     checkPasscodeStatus()
@@ -249,6 +283,9 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
             const hashArray = Array.from(new Uint8Array(hashBuffer))
             const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
             localStorage.setItem('local_privacy_hash', computedHash)
+            if (user) {
+              localStorage.setItem('has_privacy_passcode_' + user.id, 'true')
+            }
           } catch (hErr) {
             console.error('Failed to cache local privacy hash during setup:', hErr)
           }

@@ -1,6 +1,4 @@
-'use client'
-
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getApiUrl } from '@/utils/api'
 
 interface TicTacToeBoardProps {
@@ -13,18 +11,34 @@ interface TicTacToeBoardProps {
       o_player_id: string
     }
     status: string
+    created_by: string
   }
   currentUserId: string
+  setActiveGames?: React.Dispatch<React.SetStateAction<Record<string, any>>>
 }
 
-export default function TicTacToeBoard({ game, currentUserId }: TicTacToeBoardProps) {
+export default function TicTacToeBoard({ game, currentUserId, setActiveGames }: TicTacToeBoardProps) {
   const [loading, setLoading] = useState<number | null>(null)
+  const [optimisticBoard, setOptimisticBoard] = useState<(string | null)[] | null>(null)
   
   const { board, turn, x_player_id } = game.state
   const isMyTurn = turn === currentUserId && game.status === 'active'
+  const isOwn = game.created_by === currentUserId
+
+  useEffect(() => {
+    setOptimisticBoard(null)
+  }, [board])
+
+  const activeBoard = optimisticBoard || board
 
   const handleCellClick = async (idx: number) => {
-    if (!isMyTurn || board[idx] !== null || loading !== null) return
+    if (!isMyTurn || activeBoard[idx] !== null || loading !== null) return
+    
+    // Optimistic Update: Set the cell instantly in the local view
+    const nextBoard = [...activeBoard]
+    nextBoard[idx] = currentUserId
+    setOptimisticBoard(nextBoard)
+
     setLoading(idx)
     try {
       const res = await fetch(getApiUrl('/api/games/action'), {
@@ -37,10 +51,19 @@ export default function TicTacToeBoard({ game, currentUserId }: TicTacToeBoardPr
         })
       })
       const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (res.ok && data.success && data.game) {
+        if (setActiveGames) {
+          setActiveGames((prev) => ({
+            ...prev,
+            [data.game.id]: data.game
+          }))
+        }
+      } else {
+        setOptimisticBoard(null) // Rollback on error
         alert(data.error || 'Failed to place move')
       }
     } catch (e) {
+      setOptimisticBoard(null) // Rollback on error
       console.error(e)
     } finally {
       setLoading(null)
@@ -57,35 +80,41 @@ export default function TicTacToeBoard({ game, currentUserId }: TicTacToeBoardPr
       {/* Turn indicator */}
       {game.status === 'active' && (
         <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-          isMyTurn ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-gray-300'
+          isMyTurn 
+            ? 'bg-green-500/20 text-green-500' 
+            : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 text-gray-500')
         }`}>
           {isMyTurn ? '🟢 Your Turn' : '⏳ Opponent\'s Turn'}
         </span>
       )}
 
       {/* 3x3 Grid */}
-      <div className="grid grid-cols-3 gap-1.5 w-44 h-44 bg-white/5 p-1.5 rounded-2xl border border-white/10">
-        {board.map((cell, idx) => {
+      <div className={`grid grid-cols-3 gap-1.5 w-44 h-44 p-1.5 rounded-2xl border ${
+        isOwn 
+          ? 'bg-white/5 border-white/10' 
+          : 'bg-black/5 border-gray-200'
+      }`}>
+        {activeBoard.map((cell, idx) => {
           const marker = getCellMarker(cell)
           return (
             <button
               key={idx}
-              disabled={!isMyTurn || cell !== null || loading !== null}
+              disabled={!isMyTurn || cell !== null || (loading !== null && loading !== idx)}
               onClick={() => handleCellClick(idx)}
               className={`flex items-center justify-center rounded-xl font-black text-lg transition-all select-none min-h-[44px] ${
                 cell === null && isMyTurn 
-                  ? 'bg-white/10 hover:bg-white/20 active:scale-95 cursor-pointer' 
-                  : 'bg-white/5'
+                  ? (isOwn ? 'bg-white/10 hover:bg-white/20 active:scale-95 cursor-pointer' : 'bg-white border border-gray-200 hover:bg-gray-50 active:scale-95 cursor-pointer') 
+                  : (isOwn ? 'bg-white/5' : 'bg-white/50')
               } ${
                 marker === 'X' 
-                  ? 'text-yellow-300' 
+                  ? (isOwn ? 'text-yellow-300' : 'text-amber-600') 
                   : marker === 'O' 
-                    ? 'text-cyan-300' 
+                    ? (isOwn ? 'text-cyan-300' : 'text-blue-600') 
                     : 'text-transparent'
               }`}
             >
-              {loading === idx ? (
-                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              {loading === idx && cell === null ? (
+                <span className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${isOwn ? 'border-white' : 'border-blue-600'}`}></span>
               ) : (
                 marker
               )}

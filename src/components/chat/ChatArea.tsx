@@ -244,8 +244,8 @@ export default function ChatArea() {
     const resizeObserver = new ResizeObserver(() => {
       observerRunsRef.current += 1
 
-      // Check if user is close to the bottom (within 250px)
-      const threshold = 250
+      // Check if user is close to the bottom (within 20px)
+      const threshold = 20
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
 
       // During the first few renders (images loading, layout shifting on mount),
@@ -1431,6 +1431,7 @@ export default function ChatArea() {
                                 message={m}
                                 isOwn={isOwn}
                                 activeGames={activeGames}
+                                setActiveGames={setActiveGames}
                                 currentUserId={user?.id || ''}
                               />
                             ) : m.message_type === 'image' ? (

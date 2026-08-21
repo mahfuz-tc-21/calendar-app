@@ -47,18 +47,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 })
     }
 
-    // Verify conversation membership
-    const { data: membership } = await supabase
-      .from('conversation_members')
-      .select('id')
-      .eq('conversation_id', game.conversation_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Unauthorized conversation member' }, { status: 403 })
-    }
-
     // Validate that game is not completed or cancelled
     if (game.status === 'completed' || game.status === 'cancelled') {
       return NextResponse.json({ error: 'Game has already ended' }, { status: 400 })
@@ -121,7 +109,7 @@ export async function POST(request: Request) {
       }
 
       // Write private state choice
-      const { error: privErr } = await supabase
+      const { error: privErr } = await adminSupabase
         .from('game_private_states')
         .upsert({
           game_id: gameId,

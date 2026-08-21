@@ -40,13 +40,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized conversation member' }, { status: 403 })
     }
 
-    // Only the intended opponent can decline the invitation
-    if (game.opponent_id !== user.id) {
-      return NextResponse.json({ error: 'Only the invited player can decline the game' }, { status: 403 })
+    // Allow either the creator or opponent to cancel/decline/quit
+    const isCreator = game.created_by === user.id
+    const isOpponent = game.opponent_id === user.id
+
+    if (!isCreator && !isOpponent) {
+      return NextResponse.json({ error: 'Unauthorized to cancel this game' }, { status: 403 })
     }
 
-    if (game.status !== 'pending') {
-      return NextResponse.json({ error: 'Game is no longer pending' }, { status: 400 })
+    if (game.status !== 'pending' && game.status !== 'active') {
+      return NextResponse.json({ error: 'Game is not active or pending' }, { status: 400 })
     }
 
     // Update game status to cancelled

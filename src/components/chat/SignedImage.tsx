@@ -39,30 +39,22 @@ export default function SignedImage({ path, alt, onClick, className = '' }: Sign
         setLoading(true)
         setError(false)
 
-        const headers: Record<string, string> = {}
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`
-        }
-        if (session?.refresh_token) {
-          headers['x-refresh-token'] = session.refresh_token
-        }
+        // Generate signed URL directly from browser client using Supabase Storage RLS
+        const { data, error: signErr } = await supabase.storage
+          .from('chat_images')
+          .createSignedUrl(path, Math.floor(CACHE_DURATION_MS / 1000))
 
-        const res = await fetch(getApiUrl(`/api/private/sign-url?path=${encodeURIComponent(path)}`), {
-          headers,
-        })
-        if (!res.ok) throw new Error('Failed to sign URL')
-        const data = await res.json()
+        if (signErr || !data?.signedUrl) throw new Error('Failed to sign URL')
 
         // Cache the newly fetched signed URL
         signedUrlCache.set(path, {
-          url: data.url,
+          url: data.signedUrl,
           expiresAt: Date.now() + CACHE_DURATION_MS
         })
 
         if (active) {
-          setUrl(data.url)
+          setUrl(data.signedUrl)
         }
       } catch (err) {
         if (active) {

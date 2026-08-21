@@ -27,9 +27,34 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_user')
+      if (cached) {
+        try {
+          return JSON.parse(cached)
+        } catch {}
+      }
+    }
+    return null
+  })
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_profile')
+      if (cached) {
+        try {
+          return JSON.parse(cached)
+        } catch {}
+      }
+    }
+    return null
+  })
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('cached_user')
+    }
+    return true
+  })
   
   const supabaseRef = useRef<any>(null)
   if (!supabaseRef.current) {
@@ -46,10 +71,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
       if (data) {
         setProfile(data)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('profile_' + uid, JSON.stringify(data))
+          localStorage.setItem('cached_profile', JSON.stringify(data))
+        }
       } else {
         setProfile(null)
       }
     } catch {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('profile_' + uid)
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached)
+            setProfile(parsed)
+            localStorage.setItem('cached_profile', cached)
+            return
+          } catch {}
+        }
+      }
       setProfile(null)
     }
   }
@@ -68,7 +108,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentUser)
         setIsLoading(false)
         if (currentUser) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_user', JSON.stringify(currentUser))
+          }
           await fetchProfile(currentUser.id)
+        } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cached_user')
+            localStorage.removeItem('cached_profile')
+          }
         }
       } catch (err) {
         console.error('Error fetching initial session:', err)
@@ -85,9 +133,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return prevUser
         }
         if (currentUser) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_user', JSON.stringify(currentUser))
+          }
           fetchProfile(currentUser.id)
         } else {
           setProfile(null)
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cached_user')
+            localStorage.removeItem('cached_profile')
+          }
         }
         return currentUser
       })
@@ -152,6 +207,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('private_space_token')
+        localStorage.removeItem('cached_user')
+        localStorage.removeItem('cached_profile')
         sessionStorage.clear()
         window.location.href = '/login'
       }
