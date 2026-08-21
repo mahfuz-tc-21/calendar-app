@@ -3,20 +3,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useToast } from './ToastContext'
 import { useAuth } from './AuthContext'
-import { getApiUrl } from '@/utils/api'
+import { getApiUrl, getAuthHeaders } from '@/utils/api'
 import { createClient } from '@/utils/supabase/client'
 
 async function getHeaders() {
+  const authHeaders = await getAuthHeaders()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-  const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`
-  }
-  if (session?.refresh_token) {
-    headers['x-refresh-token'] = session.refresh_token
+    ...authHeaders,
   }
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('private_space_token')
@@ -69,6 +63,11 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       const checkRes = await fetch(getApiUrl('/api/private/check'), {
         headers: reqHeaders,
       })
+
+      if (!checkRes.ok) {
+        throw new Error(`Passcode check failed with status: ${checkRes.status}`)
+      }
+
       const checkData = await checkRes.json()
       const exists = !!checkData.exists
       setHasPasscode(exists)
@@ -83,8 +82,8 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       }
     } catch (err) {
       console.error('Error checking private space status:', err)
-      // Fallback to local hash existence or cached passcode status when offline
-      if (typeof window !== 'undefined') {
+      // Fallback to local hash existence or cached passcode status when offline/unauthorized token refresh
+      if (typeof window !== 'undefined' && user) {
         const localHash = localStorage.getItem('local_privacy_hash')
         const cachedHasPasscode = localStorage.getItem('has_privacy_passcode_' + user.id)
         if (localHash || cachedHasPasscode === 'true') {

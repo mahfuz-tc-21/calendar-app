@@ -41,24 +41,6 @@ export default function CalendarView() {
   const [confirmSecret, setConfirmSecret] = useState<string[]>([])
 
   useEffect(() => {
-    let isSetupTriggered = false
-    if (typeof window !== 'undefined') {
-      const trigger = localStorage.getItem('change_private_access_trigger')
-      if (trigger === 'true') {
-        isSetupTriggered = true
-        localStorage.removeItem('change_private_access_trigger')
-      }
-      if (window.location.search.includes('setup=true')) {
-        isSetupTriggered = true
-      }
-    }
-
-    if (isSetupTriggered && !isOffline) {
-      setIsSetupMode(true)
-      setSetupStep('pick_1')
-      return
-    }
-
     if (!privateSpaceLoading) {
       const mode = !isOffline && !hasPasscode
       setIsSetupMode(mode)

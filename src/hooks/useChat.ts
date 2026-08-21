@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useAuth, Profile } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
+import { getApiUrl } from '@/utils/api'
 
 const CALENDAR_STEALTH_MESSAGES = [
   "Upcoming event reminder: Daily check-in.",
@@ -315,7 +316,7 @@ export function useChat() {
       const [unreadResult, membersResult] = await Promise.all([
         supabase
           .from('messages')
-          .select('conversation_id, id')
+          .select('conversation_id, id, created_at')
           .in('conversation_id', conversationIds)
           .neq('sender_id', user.id)
           .is('read_at', null),
@@ -353,10 +354,10 @@ export function useChat() {
         
         // Always filter unread messages locally by last read time if present in localStorage
         const lastReadTimeStr = typeof window !== 'undefined' ? localStorage.getItem(`last_read_time_${convId}`) : null
-        if (lastReadTimeStr) {
-          const lastReadTime = new Date(lastReadTimeStr)
-          const messageTime = new Date(row.created_at || Date.now()) // default to now if missing
-          if (messageTime <= lastReadTime) {
+        if (lastReadTimeStr && row.created_at) {
+          const lastReadTime = new Date(lastReadTimeStr).getTime()
+          const messageTime = new Date(row.created_at).getTime()
+          if (messageTime <= lastReadTime + 2000) {
             return
           }
         }
@@ -1030,6 +1031,17 @@ export function useChat() {
         .single()
 
       if (error) throw error
+
+      // Fire-and-forget push notification trigger for background recipient delivery
+      fetch(getApiUrl('/api/push'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'INSERT',
+          table: 'messages',
+          record: data
+        })
+      }).catch((pErr) => console.error('Error invoking push notification endpoint:', pErr))
 
       // Automatically unhide conversation for the recipient
       await supabase

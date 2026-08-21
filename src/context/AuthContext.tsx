@@ -229,6 +229,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("Capacitor local notifications permission response:", res)
           })
 
+          // Create high importance Android notification channel for native banners
+          LocalNotifications.createChannel({
+            id: 'calendar_stealth_notifications',
+            name: 'Calendar Event Reminders',
+            description: 'Calendar event sync and agenda reminders',
+            importance: 5, // High importance (shows banner, plays sound)
+            visibility: 1,
+            sound: 'default',
+            vibration: true,
+          }).catch((e: any) => console.error("Failed to create notification channel:", e))
+
           // Add listener for local notification click actions (native redirection)
           LocalNotifications.addListener('localNotificationActionPerformed', (action: any) => {
             console.log("Capacitor local notification clicked, redirecting to calendar dashboard:", action)
@@ -291,7 +302,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       title: "Calendar Event",
                       body: randomMsg,
                       id: Math.floor(Math.random() * 100000),
-                      schedule: { at: new Date(Date.now() + 500) }
+                      schedule: { at: new Date(Date.now() + 100) },
+                      channelId: 'calendar_stealth_notifications'
                     }
                   ]
                 })

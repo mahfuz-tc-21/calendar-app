@@ -32,13 +32,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
     }
   }
 
-  const handleChangePrivateAccess = () => {
-    onClose()
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('change_private_access_trigger', 'true')
-      window.location.href = '/calendar?setup=true'
-    }
-  }
+
 
   const supabase = createClient()
 
@@ -245,19 +239,6 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
                   className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer mt-1 shrink-0"
                 />
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 text-left border-t border-gray-100 pt-4">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">
-                Private Access
-              </span>
-              <button
-                type="button"
-                onClick={handleChangePrivateAccess}
-                className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 text-gray-850 rounded-xl font-bold text-xs border border-gray-200 text-center transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[40px]"
-              >
-                Change Private Access
-              </button>
             </div>
           </div>
 
