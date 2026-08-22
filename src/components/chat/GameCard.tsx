@@ -131,6 +131,7 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
           conversationId: game.conversation_id,
           gameType: game.game_type,
           opponentId: game.created_by === currentUserId ? game.opponent_id : game.created_by,
+          isRematch: true,
           // Extract initial configurations if Emoji Guess, Word Guess or Would You Rather
           options: game.game_type === 'emojiguess' ? {
             emojiChallenge: game.state.emojiChallenge,

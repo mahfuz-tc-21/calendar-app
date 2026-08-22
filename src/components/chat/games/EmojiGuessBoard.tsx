@@ -107,7 +107,7 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
       <div className={`text-center py-4 rounded-2xl border flex flex-col items-center ${
         isCreator 
           ? 'bg-white/5 border-white/10 text-white' 
-          : 'bg-black/5 border-gray-200 text-gray-800'
+          : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
       }`}>
         <span className="text-[10px] font-bold opacity-75 uppercase tracking-wider mb-1">Guess the Emojis</span>
         <span className="text-4xl animate-bounce duration-1000">{emojiChallenge}</span>
@@ -124,7 +124,7 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
                 value={guessText}
                 onChange={(e) => setGuessText(e.target.value)}
                 disabled={loading}
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-200 bg-white text-gray-800 rounded-xl text-xs focus:outline-none focus:border-gray-300 placeholder-gray-400 min-h-[36px]"
+                className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-foreground rounded-xl text-xs focus:outline-none focus:border-gray-400 placeholder:text-muted-foreground min-h-[36px]"
                 required
               />
               <button
@@ -162,17 +162,17 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
             <div className={`p-2.5 rounded-xl border ${
               isCreator 
                 ? 'bg-black/10 border-white/5' 
-                : 'bg-black/5 border-gray-200/50'
+                : 'bg-black/5 dark:bg-white/5 border-gray-200/50 dark:border-border'
             }`}>
               <span className={`text-[8px] font-bold uppercase tracking-wider block mb-1 ${
-                isCreator ? 'opacity-60 text-white' : 'text-gray-500'
+                isCreator ? 'opacity-60 text-white' : 'text-muted-foreground'
               }`}>Recent Guesses</span>
               <div className="flex flex-wrap gap-1">
                 {activeGuesses.map((g, idx) => (
                   <span key={idx} className={`border px-2 py-0.5 rounded-md text-[9px] font-medium max-w-[100px] truncate capitalize ${
                     isCreator 
                       ? 'bg-white/5 border-white/5 text-white' 
-                      : 'bg-white border-gray-200 text-gray-700'
+                      : 'bg-card dark:bg-secondary border-border text-foreground'
                   }`}>
                     {g}
                   </span>
@@ -188,12 +188,12 @@ export default function EmojiGuessBoard({ game, currentUserId, setActiveGames }:
         <div className={`p-3 rounded-2xl text-center space-y-2 border ${
           isCreator 
             ? 'bg-black/10 border-white/5 text-white' 
-            : 'bg-black/5 border-gray-200 text-gray-800'
+            : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
         }`}>
           <div className="text-xs">
             <span className="opacity-75 block text-[9px]">Correct Answer</span>
             <span className={`font-extrabold capitalize text-sm ${
-              isCreator ? 'text-yellow-300' : 'text-blue-600'
+              isCreator ? 'text-yellow-300' : 'text-blue-600 dark:text-blue-400'
             }`}>{correctAnswer}</span>
           </div>
           {result === 'revealed' && (

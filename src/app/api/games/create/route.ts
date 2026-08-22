@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { conversationId, gameType, opponentId, options } = body
+    const { conversationId, gameType, opponentId, options, isRematch } = body
 
     if (!conversationId || !gameType || !opponentId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
         game_type: gameType,
         created_by: user.id,
         opponent_id: opponentId,
-        status: 'pending',
+        status: isRematch ? 'active' : 'pending',
         state: initialState,
       })
       .select()
@@ -152,19 +152,33 @@ export async function POST(request: Request) {
         sender_id: user.id,
         message_type: 'game',
         game_id: game.id,
-        content: `Invited you to play ${
-          gameType === 'tictactoe'
-            ? 'Tic-Tac-Toe'
-            : gameType === 'rps'
-            ? 'Rock Paper Scissors'
-            : gameType === 'emojiguess'
-            ? 'Emoji Guess'
-            : gameType === 'wouldyourather'
-            ? 'Would You Rather'
-            : gameType === 'battleship'
-            ? 'Battleship'
-            : 'Word Guess'
-        }`,
+        content: isRematch
+          ? `Started a rematch of ${
+              gameType === 'tictactoe'
+                ? 'Tic-Tac-Toe'
+                : gameType === 'rps'
+                ? 'Rock Paper Scissors'
+                : gameType === 'emojiguess'
+                ? 'Emoji Guess'
+                : gameType === 'wouldyourather'
+                ? 'Would You Rather'
+                : gameType === 'battleship'
+                ? 'Battleship'
+                : 'Word Guess'
+            }`
+          : `Invited you to play ${
+              gameType === 'tictactoe'
+                ? 'Tic-Tac-Toe'
+                : gameType === 'rps'
+                ? 'Rock Paper Scissors'
+                : gameType === 'emojiguess'
+                ? 'Emoji Guess'
+                : gameType === 'wouldyourather'
+                ? 'Would You Rather'
+                : gameType === 'battleship'
+                ? 'Battleship'
+                : 'Word Guess'
+            }`,
       })
 
     if (msgErr) {

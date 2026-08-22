@@ -249,13 +249,13 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       {/* Modern Overlay & Modal Dialog */}
       {showModal && updateInfo && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all duration-300">
-          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl w-full max-w-md shadow-2xl p-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card border border-border rounded-3xl w-full max-w-md shadow-2xl p-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
             {/* Close Button (only for optional updates) */}
             {!isMandatory && downloadStatus !== 'downloading' && downloadStatus !== 'installing' && (
               <button
                 onClick={handleClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-secondary transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -263,14 +263,14 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
 
             {/* Header Icon */}
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl">
-                <Download className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-bounce" />
+              <div className="p-3 bg-blue-500/10 rounded-2xl">
+                <Download className="w-6 h-6 text-primary dark:text-blue-400 animate-bounce" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h3 className="text-xl font-bold text-foreground">
                   {isMandatory ? 'Required Update' : 'New Update Available'}
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {currentVersionInfo ? `Version ${currentVersionInfo.versionName}` : ''} → Version {updateInfo.versionName}
                 </p>
               </div>
@@ -279,19 +279,19 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
             {/* Content States */}
             {downloadStatus === 'idle' && !showPermissionPrompt && (
               <>
-                <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 mb-6 max-h-40 overflow-y-auto custom-scrollbar">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">What's New</h4>
+                <div className="bg-secondary/40 border border-border rounded-2xl p-4 mb-6 max-h-40 overflow-y-auto custom-scrollbar">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">What's New</h4>
                   {updateInfo.releaseNotes && updateInfo.releaseNotes.length > 0 ? (
                     <ul className="space-y-1.5">
                       {updateInfo.releaseNotes.map((note, idx) => (
-                        <li key={idx} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                        <li key={idx} className="text-sm text-foreground flex items-start gap-2">
                           <span className="text-blue-500 shrink-0 mt-1">•</span>
                           <span>{note}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">No release notes provided.</p>
+                    <p className="text-sm text-muted-foreground italic">No release notes provided.</p>
                   )}
                 </div>
 
@@ -299,7 +299,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
                   {!isMandatory && (
                     <button
                       onClick={handleClose}
-                      className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl border border-border hover:bg-secondary text-sm font-semibold text-foreground transition-colors cursor-pointer"
                     >
                       Later
                     </button>
@@ -317,9 +317,9 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
             {/* Permission Prompt Modal state */}
             {showPermissionPrompt && (
               <div className="mb-4">
-                <div className="flex gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-2xl mb-5">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <p className="text-sm text-amber-800 dark:text-amber-300">
+                <div className="flex gap-2.5 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-5">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                  <p className="text-sm text-amber-800 dark:text-amber-250">
                     To install updates, Android requires permission to allow install settings from this app.
                   </p>
                 </div>
@@ -327,7 +327,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
                   {!isMandatory && (
                     <button
                       onClick={() => setShowPermissionPrompt(false)}
-                      className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl border border-border hover:bg-secondary text-sm font-semibold text-foreground transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -346,18 +346,18 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
             {(downloadStatus === 'downloading' || downloadStatus === 'installing') && (
               <div className="my-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-semibold text-foreground">
                     {downloadStatus === 'installing' ? 'Opening installer...' : 'Downloading update...'}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{downloadProgress}%</span>
+                  <span className="text-xs text-muted-foreground">{downloadProgress}%</span>
                 </div>
-                <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
                   <div
                     className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${downloadProgress}%` }}
                   />
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                <p className="text-xs text-muted-foreground mt-2 text-center">
                   Do not close the app while update is in progress.
                 </p>
               </div>
@@ -366,9 +366,9 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
             {/* Failure state */}
             {downloadStatus === 'failed' && (
               <div className="my-4">
-                <div className="flex gap-2.5 p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 rounded-2xl mb-5">
-                  <Info className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
-                  <p className="text-sm text-red-800 dark:text-red-300">
+                <div className="flex gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl mb-5">
+                  <Info className="w-5 h-5 text-red-500 shrink-0" />
+                  <p className="text-sm text-red-800 dark:text-red-250">
                     {downloadError || 'Update download failed.'}
                   </p>
                 </div>
@@ -376,7 +376,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
                   {!isMandatory && (
                     <button
                       onClick={handleClose}
-                      className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl border border-border hover:bg-secondary text-sm font-semibold text-foreground transition-colors cursor-pointer"
                     >
                       Close
                     </button>

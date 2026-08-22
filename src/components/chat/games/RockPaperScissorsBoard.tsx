@@ -85,7 +85,7 @@ export default function RockPaperScissorsBoard({ game, currentUserId, setActiveG
       {!revealed && (
         <div className="space-y-3 w-full flex flex-col items-center">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-            isOwn ? 'bg-white/10 text-white' : 'bg-black/5 text-gray-500'
+            isOwn ? 'bg-white/10 text-white' : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-muted-foreground'
           }`}>
             {partnerMoved ? '🤝 Opponent has chosen' : '⏳ Opponent choosing...'}
           </span>
@@ -100,7 +100,7 @@ export default function RockPaperScissorsBoard({ game, currentUserId, setActiveG
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl flex-1 text-center transition-all cursor-pointer active:scale-95 border font-extrabold text-sm ${
                     isOwn 
                       ? 'bg-white/10 hover:bg-white/20 border-white/5 text-white' 
-                      : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-800'
+                      : 'bg-card dark:bg-secondary border-border hover:bg-secondary/70 text-foreground'
                   }`}
                 >
                   <span className="text-xl mb-1">{getEmoji(choice)}</span>
@@ -110,7 +110,7 @@ export default function RockPaperScissorsBoard({ game, currentUserId, setActiveG
             </div>
           ) : (
             <div className={`text-[10px] font-semibold text-center py-2 ${
-              isOwn ? 'text-cyan-200' : 'text-blue-600'
+              isOwn ? 'text-cyan-200' : 'text-blue-600 dark:text-blue-400'
             }`}>
               Locked in! Waiting for opponent...
             </div>
@@ -123,14 +123,14 @@ export default function RockPaperScissorsBoard({ game, currentUserId, setActiveG
         <div className={`flex justify-around items-center w-full py-2 rounded-2xl border ${
           isOwn 
             ? 'bg-white/5 border-white/10 text-white' 
-            : 'bg-black/5 border-gray-200 text-gray-800'
+            : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
         }`}>
           <div className="text-center">
             <span className="block text-[9px] opacity-75">You</span>
             <span className="text-3xl block my-1">{getEmoji(choices[currentUserId])}</span>
             <span className="text-[9px] capitalize font-bold">{choices[currentUserId]}</span>
           </div>
-          <span className={`text-xs font-black ${isOwn ? 'text-white/30' : 'text-gray-300'}`}>VS</span>
+          <span className={`text-xs font-black ${isOwn ? 'text-white/30' : 'text-muted-foreground'}`}>VS</span>
           <div className="text-center">
             <span className="block text-[9px] opacity-75">Opponent</span>
             <span className="text-3xl block my-1">{getEmoji(choices[partnerId])}</span>

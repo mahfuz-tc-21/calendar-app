@@ -18,7 +18,6 @@ interface PreviewData {
   error?: boolean
 }
 
-// Simple in-memory cache to avoid duplicate fetches for the same URL in the same session
 const previewCache = new Map<string, PreviewData>()
 
 export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
@@ -28,10 +27,8 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
   useEffect(() => {
     if (!url) return
 
-    // Clean URL
     const cleanUrl = url.trim()
     
-    // Check cache first
     if (previewCache.has(cleanUrl)) {
       setData(previewCache.get(cleanUrl) || null)
       return
@@ -66,7 +63,6 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
         
         if (isMounted) {
           if (preview.error) {
-            // Store fallback state in cache to prevent endless retries
             const errorData = { 
               title: hostname, 
               description: 'Open website link',
@@ -118,7 +114,7 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
       <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 text-xs border ${
         isOwn 
           ? 'bg-white/10 border-white/10 text-blue-100' 
-          : 'bg-gray-50 border-gray-100 text-gray-500'
+          : 'bg-secondary/40 border-border text-muted-foreground'
       }`}>
         <Loader2 className="w-3 h-3 animate-spin" />
         <span className="text-[10px]">Loading preview...</span>
@@ -126,12 +122,10 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
     )
   }
 
-  // If no data, render nothing
   if (!data) {
     return null
   }
 
-  // Determine domain name to show cleanly
   let domain = data.siteName || ''
   if (!domain) {
     try {
@@ -141,10 +135,8 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
     }
   }
 
-  // Clean title & description fallbacks
   let displayTitle = data.title
   if (!displayTitle || displayTitle === domain || displayTitle === new URL(url).hostname) {
-    // If title is just the domain or empty, use the path or clean URL as the title
     try {
       const urlObj = new URL(url)
       displayTitle = urlObj.pathname !== '/' && urlObj.pathname.length > 2
@@ -165,10 +157,10 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
       className={`mt-2 flex rounded-lg overflow-hidden border transition-all text-left shadow-2xs max-w-xs sm:max-w-sm hover:no-underline select-text ${
         isOwn
           ? 'bg-blue-600/30 border-blue-500/20 text-white hover:bg-blue-600/40'
-          : 'bg-white border-gray-150 text-gray-800 hover:bg-gray-50/80'
+          : 'bg-card border-border text-foreground hover:bg-secondary/80'
       }`}
     >
-      {/* Fallback Icon / Web Image */}
+      {/* Icon / Web Image */}
       <div className="w-16 sm:w-20 relative shrink-0 bg-black/5 dark:bg-white/5 flex items-center justify-center overflow-hidden border-r border-inherit">
         {data.image ? (
           <img
@@ -177,7 +169,6 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
             className="w-full h-full object-cover absolute inset-0"
             loading="lazy"
             onError={(e) => {
-              // Hide image if it fails to load
               e.currentTarget.style.display = 'none'
               const parent = e.currentTarget.parentElement
               if (parent) {
@@ -188,7 +179,7 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
           />
         ) : null}
         <div className={`fallback-icon flex items-center justify-center w-full h-full ${data.image ? 'hidden' : ''} ${
-          isOwn ? 'text-blue-200' : 'text-gray-400'
+          isOwn ? 'text-blue-200' : 'text-muted-foreground'
         }`}>
           <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
@@ -199,16 +190,16 @@ export default function LinkPreview({ url, isOwn }: LinkPreviewProps) {
         <div className="flex flex-col gap-0.5">
           {domain && (
             <span className={`text-[9px] uppercase font-bold tracking-wider ${
-              isOwn ? 'text-blue-200' : 'text-primary'
+              isOwn ? 'text-blue-200' : 'text-primary dark:text-blue-400'
             }`}>
               {domain}
             </span>
           )}
-          <h4 className="font-semibold text-[11px] line-clamp-2 leading-snug break-all">
+          <h4 className="font-semibold text-[11px] line-clamp-2 leading-snug break-all text-foreground">
             {displayTitle}
           </h4>
           <p className={`text-[10px] line-clamp-2 leading-normal mt-0.5 ${
-            isOwn ? 'text-blue-100/90' : 'text-gray-500'
+            isOwn ? 'text-blue-100/90' : 'text-muted-foreground'
           }`}>
             {displayDescription}
           </p>

@@ -42,7 +42,7 @@ The manifest contains metadata describing the latest published release. It is ho
 {
   "versionName": "1.0.1",
   "versionCode": 10001,
-  "apkUrl": "https://github.com/<owner>/<repo>/releases/download/v1.0.1/app-release-signed.apk",
+  "apkUrl": "https://github.com/mahfuz-tc-21/calendar-app/releases/download/v1.0.1/app-release-unsigned-signed.apk",
   "mandatory": false,
   "releaseNotes": [
     "Improved app startup performance",

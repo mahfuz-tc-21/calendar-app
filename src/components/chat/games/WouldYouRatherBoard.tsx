@@ -90,10 +90,10 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
             onClick={() => handleVote('A')}
             className={`w-full p-4 text-left border rounded-2xl transition-all cursor-pointer font-bold text-xs ${
               activeVote !== null
-                ? (isOwn ? 'bg-white/5 border-white/5 opacity-50 text-white' : 'bg-black/5 border-gray-250 opacity-50 text-gray-400')
+                ? (isOwn ? 'bg-white/5 border-white/5 opacity-50 text-white' : 'bg-black/5 dark:bg-white/5 border-gray-250 dark:border-border opacity-50 text-gray-400')
                 : (isOwn 
                     ? 'bg-white/10 border-white/5 hover:bg-white/20 active:scale-98 text-white' 
-                    : 'bg-white border-gray-200 hover:bg-gray-100 active:scale-98 text-gray-800')
+                    : 'bg-card dark:bg-secondary border-gray-200 dark:border-border hover:bg-gray-100 dark:hover:bg-secondary/85 active:scale-98 text-foreground')
             }`}
           >
             {loading === 'A' ? (
@@ -104,7 +104,7 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
           </button>
 
           <div className={`text-center text-[9px] font-bold ${
-            isOwn ? 'text-white/40' : 'text-gray-400'
+            isOwn ? 'text-white/40' : 'text-muted-foreground'
           }`}>OR</div>
 
           <button
@@ -112,10 +112,10 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
             onClick={() => handleVote('B')}
             className={`w-full p-4 text-left border rounded-2xl transition-all cursor-pointer font-bold text-xs ${
               activeVote !== null 
-                ? (isOwn ? 'bg-white/5 border-white/5 opacity-50 text-white' : 'bg-black/5 border-gray-250 opacity-50 text-gray-400')
+                ? (isOwn ? 'bg-white/5 border-white/5 opacity-50 text-white' : 'bg-black/5 dark:bg-white/5 border-gray-250 dark:border-border opacity-50 text-gray-400')
                 : (isOwn 
                     ? 'bg-white/10 border-white/5 hover:bg-white/20 active:scale-98 text-white' 
-                    : 'bg-white border-gray-200 hover:bg-gray-100 active:scale-98 text-gray-800')
+                    : 'bg-card dark:bg-secondary border-gray-200 dark:border-border hover:bg-gray-100 dark:hover:bg-secondary/85 active:scale-98 text-foreground')
             }`}
           >
             {loading === 'B' ? (
@@ -127,7 +127,7 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
 
           <div className="text-center py-1">
             <span className={`text-[9px] font-semibold px-2.5 py-0.5 rounded-full ${
-              isOwn ? 'bg-white/10 text-white' : 'bg-black/5 text-gray-500'
+              isOwn ? 'bg-white/10 text-white' : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-muted-foreground'
             }`}>
               {partnerVoted ? '🤝 Opponent has voted' : '⏳ Opponent voting...'}
             </span>
@@ -140,13 +140,13 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
         <div className={`space-y-2.5 p-3.5 rounded-2xl border ${
           isOwn 
             ? 'bg-black/10 border-white/5 text-white' 
-            : 'bg-black/5 border-gray-200 text-gray-800'
+            : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
         }`}>
           {/* Option A Result */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs font-semibold">
               <span className="truncate pr-2">{optionA}</span>
-              <span className={`font-extrabold ${isOwn ? 'text-cyan-300' : 'text-blue-600'}`}>
+              <span className={`font-extrabold ${isOwn ? 'text-cyan-300' : 'text-blue-600 dark:text-blue-400'}`}>
                 {Object.values(choices).filter(v => v === 'A').length} vote(s)
               </span>
             </div>
@@ -158,13 +158,13 @@ export default function WouldYouRatherBoard({ game, currentUserId, setActiveGame
             )}
           </div>
 
-          <hr className={isOwn ? 'border-white/5 my-2' : 'border-gray-200 my-2'} />
+          <hr className={isOwn ? 'border-white/5 my-2' : 'border-gray-200 dark:border-border my-2'} />
 
           {/* Option B Result */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs font-semibold">
               <span className="truncate pr-2">{optionB}</span>
-              <span className={`font-extrabold ${isOwn ? 'text-cyan-300' : 'text-blue-600'}`}>
+              <span className={`font-extrabold ${isOwn ? 'text-cyan-300' : 'text-blue-600 dark:text-blue-400'}`}>
                 {Object.values(choices).filter(v => v === 'B').length} vote(s)
               </span>
             </div>

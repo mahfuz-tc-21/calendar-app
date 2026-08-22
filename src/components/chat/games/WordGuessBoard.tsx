@@ -81,8 +81,8 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
 
   // Generate word placeholder
   const renderPlaceholder = () => {
-    const textClass = isCreator ? 'text-white' : 'text-gray-800'
-    const borderClass = isCreator ? 'border-white/30' : 'border-gray-400'
+    const textClass = isCreator ? 'text-white' : 'text-gray-800 dark:text-foreground'
+    const borderClass = isCreator ? 'border-white/30' : 'border-gray-400 dark:border-border'
 
     if (game.status === 'completed' && secretWord) {
       return secretWord.split('').map((char, idx) => (
@@ -122,11 +122,11 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
       <div className={`text-center py-2.5 rounded-xl border flex flex-col items-center ${
         isCreator 
           ? 'bg-white/5 border-white/10 text-white' 
-          : 'bg-black/5 border-gray-200 text-gray-800'
+          : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
       }`}>
         <span className="text-[9px] font-bold opacity-75 uppercase tracking-wider">Hint</span>
         <span className={`text-xs font-black capitalize ${
-          isCreator ? 'text-cyan-300' : 'text-blue-600'
+          isCreator ? 'text-cyan-300' : 'text-blue-600 dark:text-blue-400'
         }`}>{category}</span>
       </div>
 
@@ -134,7 +134,7 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
       <div className={`flex justify-center gap-1 py-3 rounded-xl border flex-wrap ${
         isCreator 
           ? 'bg-black/15 border-white/5' 
-          : 'bg-black/5 border-gray-200'
+          : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border'
       }`}>
         {renderPlaceholder()}
       </div>
@@ -145,7 +145,7 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
           {!isCreator ? (
             <div className="space-y-2.5">
               {/* Guess letter form */}
-              <form onSubmit={(e) => handleGuessSubmit(e, false)} className="flex gap-2">
+              <form onSubmit={(e) => handleGuessSubmit(e, false)} className="flex gap-2 text-left">
                 <input
                   type="text"
                   maxLength={1}
@@ -153,7 +153,7 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   disabled={loading}
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 bg-white text-gray-800 rounded-xl text-xs focus:outline-none focus:border-gray-300 placeholder-gray-400 min-h-[36px]"
+                  className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-foreground rounded-xl text-xs focus:outline-none focus:border-gray-400 placeholder:text-muted-foreground min-h-[36px]"
                   required
                 />
                 <button
@@ -166,20 +166,20 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
               </form>
 
               {/* Guess full word form */}
-              <form onSubmit={(e) => handleGuessSubmit(e, true)} className="flex gap-2">
+              <form onSubmit={(e) => handleGuessSubmit(e, true)} className="flex gap-2 text-left">
                 <input
                   type="text"
                   placeholder="Guess full word..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   disabled={loading}
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 bg-white text-gray-800 rounded-xl text-xs focus:outline-none focus:border-gray-300 placeholder-gray-400 min-h-[36px]"
+                  className="flex-1 min-w-0 px-3 py-2 border border-border bg-card text-foreground rounded-xl text-xs focus:outline-none focus:border-gray-400 placeholder:text-muted-foreground min-h-[36px]"
                   required
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[36px]"
+                  className="px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[36px]"
                 >
                   Solve
                 </button>
@@ -195,11 +195,11 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
 
           {/* Attempts counter */}
           <div className="flex justify-between items-center px-1">
-            <span className={`text-[9px] font-semibold ${isCreator ? 'opacity-75' : 'text-gray-500'}`}>Attempts left:</span>
+            <span className={`text-[9px] font-semibold ${isCreator ? 'opacity-75' : 'text-muted-foreground'}`}>Attempts left:</span>
             <span className={`text-xs font-black ${
               attemptsLeft <= 2 
-                ? (isCreator ? 'text-red-300' : 'text-red-600') 
-                : (isCreator ? 'text-green-300' : 'text-green-600')
+                ? (isCreator ? 'text-red-300' : 'text-red-650 dark:text-red-400') 
+                : (isCreator ? 'text-green-300' : 'text-green-600 dark:text-green-400')
             }`}>
               {attemptsLeft}/{maxAttempts}
             </span>
@@ -210,17 +210,17 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
             <div className={`p-2.5 rounded-xl border ${
               isCreator 
                 ? 'bg-black/10 border-white/5' 
-                : 'bg-black/5 border-gray-200/55'
+                : 'bg-black/5 dark:bg-white/5 border-gray-200/55 dark:border-border'
             } space-y-1.5`}>
               {guessedLetters.length > 0 && (
-                <div>
-                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-gray-500'}`}>Guessed Letters</span>
+                <div className="text-left">
+                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-muted-foreground'}`}>Guessed Letters</span>
                   <div className="flex flex-wrap gap-1">
                     {guessedLetters.map((l, idx) => (
                       <span key={idx} className={`border px-2 py-0.5 rounded-md text-[9px] font-bold ${
                         isCreator 
                           ? 'bg-white/5 border-white/5 text-gray-300' 
-                          : 'bg-white border-gray-200 text-gray-700'
+                          : 'bg-card dark:bg-secondary border-border text-foreground'
                       }`}>
                         {l}
                       </span>
@@ -229,12 +229,12 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
                 </div>
               )}
               {guessedWords.length > 0 && (
-                <div>
-                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-gray-500'}`}>Guessed Words</span>
+                <div className="text-left">
+                  <span className={`text-[8px] font-bold uppercase tracking-wider block mb-0.5 ${isCreator ? 'opacity-60 text-white' : 'text-muted-foreground'}`}>Guessed Words</span>
                   <div className="flex flex-col gap-1">
                     {guessedWords.map((w, idx) => (
                       <span key={idx} className={`text-[9px] font-medium line-through ${
-                        isCreator ? 'text-red-300' : 'text-red-600'
+                        isCreator ? 'text-red-300' : 'text-red-600 dark:text-red-400'
                       }`}>
                         {w}
                       </span>
@@ -252,11 +252,11 @@ export default function WordGuessBoard({ game, currentUserId, setActiveGames }: 
         <div className={`p-3 rounded-2xl text-center space-y-1 border ${
           isCreator 
             ? 'bg-black/10 border-white/5 text-white' 
-            : 'bg-black/5 border-gray-200 text-gray-800'
+            : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border text-foreground'
         }`}>
           <span className="opacity-75 block text-[9px]">Secret Word</span>
           <span className={`font-extrabold capitalize text-sm ${
-            isCreator ? 'text-yellow-300' : 'text-blue-600'
+            isCreator ? 'text-yellow-300' : 'text-blue-600 dark:text-blue-400'
           }`}>{secretWord}</span>
         </div>
       )}

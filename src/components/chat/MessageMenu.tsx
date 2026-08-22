@@ -58,19 +58,19 @@ export default function MessageMenu({
       
       {/* Container holding sheet (prevent event bubble) */}
       <div
-        className="bg-white rounded-t-3xl max-w-md w-full mx-auto p-5 pb-8 space-y-5 animate-in slide-in-from-bottom duration-200 border-t border-gray-100 shadow-xl"
+        className="bg-card text-foreground rounded-t-3xl max-w-md w-full mx-auto p-5 pb-8 space-y-5 animate-in slide-in-from-bottom duration-200 border-t border-border shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Swipe bar indicator */}
-        <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto cursor-pointer" onClick={onClose} />
+        <div className="w-12 h-1 bg-border rounded-full mx-auto cursor-pointer" onClick={onClose} />
 
         {/* Reaction quick-bar */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">
+        <div className="space-y-2 text-left">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
             React
           </span>
-          <div className="flex items-center justify-between bg-gray-50 border border-gray-100 px-4 py-2.5 rounded-2xl">
+          <div className="flex items-center justify-between bg-secondary border border-border px-4 py-2.5 rounded-2xl">
             {REACTION_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
@@ -89,20 +89,20 @@ export default function MessageMenu({
 
         {/* Actions List */}
         <div className="space-y-1.5">
-          {/* Reply Option (All messages) */}
+          {/* Reply Option */}
           <button
             type="button"
             onClick={() => {
               onReply()
               onClose()
             }}
-            className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold text-sm transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-secondary active:bg-secondary/80 text-foreground font-semibold text-sm transition-colors cursor-pointer"
           >
-            <Reply className="w-4.5 h-4.5 text-gray-500" />
+            <Reply className="w-4.5 h-4.5 text-muted-foreground" />
             <span>Reply</span>
           </button>
 
-          {/* Copy Option (Only own/other Text messages) */}
+          {/* Copy Option */}
           {isText && (
             <button
               type="button"
@@ -110,14 +110,14 @@ export default function MessageMenu({
                 onCopy()
                 onClose()
               }}
-              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-secondary active:bg-secondary/80 text-foreground font-semibold text-sm transition-colors cursor-pointer"
             >
-              <Copy className="w-4.5 h-4.5 text-gray-500" />
+              <Copy className="w-4.5 h-4.5 text-muted-foreground" />
               <span>Copy Text</span>
             </button>
           )}
 
-          {/* Edit Option (Only own Text messages) */}
+          {/* Edit Option */}
           {isOwn && isText && (
             <button
               type="button"
@@ -125,14 +125,14 @@ export default function MessageMenu({
                 onEdit()
                 onClose()
               }}
-              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-secondary active:bg-secondary/80 text-foreground font-semibold text-sm transition-colors cursor-pointer"
             >
-              <Edit2 className="w-4.5 h-4.5 text-gray-500" />
+              <Edit2 className="w-4.5 h-4.5 text-muted-foreground" />
               <span>Edit Message</span>
             </button>
           )}
 
-          {/* Delete Option (Only own messages) */}
+          {/* Delete Option */}
           {isOwn && (
             <button
               type="button"
@@ -140,9 +140,9 @@ export default function MessageMenu({
                 onDelete()
                 onClose()
               }}
-              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-red-50 active:bg-red-100 text-red-600 font-semibold text-sm transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3 text-left rounded-xl hover:bg-red-500/10 active:bg-red-500/20 text-red-650 dark:text-red-400 font-semibold text-sm transition-colors cursor-pointer"
             >
-              <Trash2 className="w-4.5 h-4.5 text-red-500" />
+              <Trash2 className="w-4.5 h-4.5 text-red-500 dark:text-red-400" />
               <span>Delete Message</span>
             </button>
           )}
@@ -152,7 +152,7 @@ export default function MessageMenu({
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-3.5 border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 active:bg-gray-100 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+          className="w-full py-3.5 border border-border text-foreground rounded-2xl hover:bg-secondary active:bg-secondary/80 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
         >
           <X className="w-4 h-4" />
           <span>Cancel</span>

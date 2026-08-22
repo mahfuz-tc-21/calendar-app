@@ -180,7 +180,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
           <div className={`grid grid-cols-10 gap-0.5 p-1 rounded-xl border select-none ${
             isOwn 
               ? 'bg-white/5 border-white/10' 
-              : 'bg-black/5 border-gray-250'
+              : 'bg-black/5 dark:bg-white/5 border-gray-250 dark:border-border'
           }`}>
             {Array.from({ length: 10 }).map((_, y) => (
               <React.Fragment key={y}>
@@ -194,7 +194,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
                       className={`w-[18px] h-[18px] rounded-[3px] text-[8px] transition-all flex items-center justify-center font-bold ${
                         isSelected 
                           ? 'bg-yellow-400 border border-yellow-300' 
-                          : (isOwn ? 'bg-white/10 hover:bg-white/20' : 'bg-white border border-gray-200 hover:bg-gray-100')
+                          : (isOwn ? 'bg-white/10 hover:bg-white/20' : 'bg-card dark:bg-secondary border border-border hover:bg-secondary text-foreground')
                       }`}
                     />
                   )
@@ -210,7 +210,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
               className={`w-full py-2 rounded-xl text-xs font-bold shadow disabled:opacity-50 transition-all cursor-pointer min-h-[36px] ${
                 isOwn 
                   ? 'bg-white text-blue-600 hover:bg-gray-50' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white'
               }`}
             >
               {loading ? 'Deploying...' : 'Deploy Fleet'}
@@ -226,7 +226,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
               isMyTurn 
                 ? 'bg-green-500/20 text-green-500' 
-                : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 text-gray-500')
+                : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-muted-foreground')
             }`}>
               {isMyTurn ? '🟢 Your Turn to Attack' : '⏳ Opponent\'s Turn'}
             </span>
@@ -238,7 +238,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
             <div className={`grid grid-cols-10 gap-0.5 p-1.5 rounded-xl border select-none ${
               isOwn 
                 ? 'bg-red-950/20 border-red-500/20' 
-                : 'bg-red-50 border border-red-200'
+                : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30'
             }`}>
               {Array.from({ length: 10 }).map((_, y) => (
                 <React.Fragment key={y}>
@@ -257,10 +257,10 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
                             : statusVal === '💥' 
                               ? 'bg-red-500 text-white' 
                               : statusVal === '🌊' 
-                                ? (isOwn ? 'bg-blue-900/50 text-white' : 'bg-blue-100 text-blue-700') 
+                                ? (isOwn ? 'bg-blue-900/50 text-white' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400') 
                                 : canAttack 
-                                  ? (isOwn ? 'bg-white/10 hover:bg-red-500/20 cursor-crosshair' : 'bg-white border border-gray-200 hover:bg-red-500/10 cursor-crosshair') 
-                                  : (isOwn ? 'bg-white/5' : 'bg-white/50 border border-gray-100')
+                                  ? (isOwn ? 'bg-white/10 hover:bg-red-500/20 cursor-crosshair' : 'bg-card dark:bg-secondary border border-border hover:bg-red-500/10 dark:hover:bg-red-500/20 cursor-crosshair text-foreground') 
+                                  : (isOwn ? 'bg-white/5' : 'bg-card/50 dark:bg-secondary/50 border border-border')
                         }`}
                       >
                         {isTargeting ? '🎯' : statusVal}
@@ -278,7 +278,7 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
             <div className={`grid grid-cols-10 gap-0.5 p-1.5 rounded-xl border select-none ${
               isOwn 
                 ? 'bg-blue-950/20 border-blue-500/20' 
-                : 'bg-blue-50 border border-blue-200'
+                : 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30'
             }`}>
               {Array.from({ length: 10 }).map((_, y) => (
                 <React.Fragment key={y}>
@@ -291,10 +291,10 @@ export default function BattleshipBoard({ game, currentUserId, setActiveGames }:
                           statusVal === '💥' 
                             ? 'bg-red-500 text-white font-bold' 
                             : statusVal === '🌊' 
-                              ? (isOwn ? 'bg-blue-900/50 text-white font-bold' : 'bg-blue-100 text-blue-700 font-bold') 
+                              ? (isOwn ? 'bg-blue-900/50 text-white font-bold' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-bold') 
                               : statusVal === '🚢' 
                                 ? 'bg-yellow-400 border border-yellow-300' 
-                                : (isOwn ? 'bg-white/5' : 'bg-white border border-gray-100')
+                                : (isOwn ? 'bg-white/5' : 'bg-card dark:bg-secondary border border-border')
                         }`}
                       >
                         {statusVal === '🚢' ? '' : statusVal}

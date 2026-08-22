@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { PrivateSpaceProvider } from "@/context/PrivateSpaceContext";
 import { AutoUpdateProvider } from "@/components/AutoUpdateProvider";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,14 +23,34 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme') || 'system';
+                  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ToastProvider>
           <AuthProvider>
             <PrivateSpaceProvider>
-              <AutoUpdateProvider>
-                {children}
-              </AutoUpdateProvider>
+              <ThemeProvider>
+                <AutoUpdateProvider>
+                  {children}
+                </AutoUpdateProvider>
+              </ThemeProvider>
             </PrivateSpaceProvider>
           </AuthProvider>
         </ToastProvider>

@@ -83,7 +83,7 @@ export default function TicTacToeBoard({ game, currentUserId, setActiveGames }: 
         <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
           isMyTurn 
             ? 'bg-green-500/20 text-green-500' 
-            : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 text-gray-500')
+            : (isOwn ? 'bg-white/10 text-gray-300' : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-muted-foreground')
         }`}>
           {isMyTurn ? '🟢 Your Turn' : '⏳ Opponent\'s Turn'}
         </span>
@@ -93,7 +93,7 @@ export default function TicTacToeBoard({ game, currentUserId, setActiveGames }: 
       <div className={`grid grid-cols-3 gap-1.5 w-44 h-44 p-1.5 rounded-2xl border ${
         isOwn 
           ? 'bg-white/5 border-white/10' 
-          : 'bg-black/5 border-gray-200'
+          : 'bg-black/5 dark:bg-white/5 border-gray-200 dark:border-border'
       }`}>
         {activeBoard.map((cell, idx) => {
           const marker = getCellMarker(cell)
@@ -104,13 +104,13 @@ export default function TicTacToeBoard({ game, currentUserId, setActiveGames }: 
               onClick={() => handleCellClick(idx)}
               className={`flex items-center justify-center rounded-xl font-black text-lg transition-all select-none min-h-[44px] ${
                 cell === null && isMyTurn 
-                  ? (isOwn ? 'bg-white/10 hover:bg-white/20 active:scale-95 cursor-pointer' : 'bg-white border border-gray-200 hover:bg-gray-50 active:scale-95 cursor-pointer') 
-                  : (isOwn ? 'bg-white/5' : 'bg-white/50')
+                  ? (isOwn ? 'bg-white/10 hover:bg-white/20 active:scale-95 cursor-pointer' : 'bg-card dark:bg-secondary border border-border hover:bg-secondary/80 active:scale-95 cursor-pointer') 
+                  : (isOwn ? 'bg-white/5' : 'bg-secondary/40')
               } ${
                 marker === 'X' 
-                  ? (isOwn ? 'text-yellow-300' : 'text-amber-600') 
+                  ? (isOwn ? 'text-yellow-300' : 'text-amber-600 dark:text-amber-400') 
                   : marker === 'O' 
-                    ? (isOwn ? 'text-cyan-300' : 'text-blue-600') 
+                    ? (isOwn ? 'text-cyan-300' : 'text-blue-600 dark:text-blue-400') 
                     : 'text-transparent'
               }`}
             >

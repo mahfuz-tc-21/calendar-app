@@ -194,13 +194,13 @@ export default function CalendarView() {
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900 pb-16">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-16">
       
       {/* Top Header */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-border shadow-xs">
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-xs">
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-lg tracking-tight text-gray-900">Calendar</span>
+          <span className="font-semibold text-lg tracking-tight text-foreground">Calendar</span>
         </div>
         
         {/* Actions */}
@@ -213,9 +213,9 @@ export default function CalendarView() {
         
         {/* Setup Banner */}
         {isSetupMode && (
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-center space-y-2 animate-in fade-in duration-200">
-            <h2 className="text-sm font-bold text-primary">Set your private access</h2>
-            <p className="text-xs text-gray-600 leading-relaxed">
+          <div className="bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/20 dark:border-blue-500/30 p-4 rounded-2xl text-center space-y-2 animate-in fade-in duration-200">
+            <h2 className="text-sm font-bold text-primary dark:text-blue-400">Set your private access</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {setupStep === 'pick_1' && 'Choose two Calendar cells. These two cells will be used to open your private space. Select the first cell.'}
               {setupStep === 'pick_2' && 'Select the second cell.'}
               {setupStep === 'confirm_1' && 'Select the same first cell to confirm your sequence.'}
@@ -231,7 +231,7 @@ export default function CalendarView() {
                   setConfirmSecret([])
                   router.replace('/calendar')
                 }}
-                className="px-3 py-1 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer"
+                className="px-3 py-1 bg-card hover:bg-secondary border border-border rounded-lg text-xs font-semibold text-foreground cursor-pointer transition-colors"
               >
                 Cancel Setup
               </button>
@@ -240,7 +240,7 @@ export default function CalendarView() {
         )}
 
         {/* Navigation & Selectors */}
-        <div className="bg-white p-4 rounded-2xl border border-border shadow-xs space-y-3">
+        <div className="bg-card p-4 rounded-2xl border border-border shadow-xs space-y-3">
           
           {/* Controls Bar */}
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
@@ -249,14 +249,14 @@ export default function CalendarView() {
                 <button
                   type="button"
                   onClick={handlePrevMonth}
-                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   type="button"
                   onClick={handleNextMonth}
-                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -265,7 +265,7 @@ export default function CalendarView() {
               <button
                 type="button"
                 onClick={handleToday}
-                className="px-3.5 py-1.5 border border-gray-300 hover:border-gray-400 rounded-lg text-sm font-medium text-gray-700 bg-white cursor-pointer hover:bg-gray-50 transition-colors min-h-[40px]"
+                className="px-3.5 py-1.5 border border-border rounded-lg text-sm font-medium text-foreground bg-card cursor-pointer hover:bg-secondary transition-colors min-h-[40px]"
               >
                 Today
               </button>
@@ -276,7 +276,7 @@ export default function CalendarView() {
               <select
                 value={currentMonth}
                 onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
-                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
+                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-border rounded-lg text-sm bg-card font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
               >
                 {MONTH_NAMES.map((name, i) => (
                   <option key={name} value={i + 1}>
@@ -288,7 +288,7 @@ export default function CalendarView() {
               <select
                 value={currentYear}
                 onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
+                className="flex-1 sm:flex-none px-2.5 py-1.5 border border-border rounded-lg text-sm bg-card font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer min-h-[40px]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>
@@ -304,15 +304,15 @@ export default function CalendarView() {
             {/* Weekdays */}
             <div className="grid grid-cols-7 text-center mb-1">
               {WEEK_DAYS.map((day) => (
-                <div key={day} className="text-xs font-semibold text-gray-400 py-1 uppercase tracking-wider">
+                <div key={day} className="text-xs font-semibold text-muted-foreground py-1 uppercase tracking-wider">
                   {day}
                 </div>
               ))}
             </div>
 
             {/* Days cells */}
-            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 border-t border-gray-100 pt-1">
-              {gridDays.map(({ dateStr, dayNumber, isCurrentMonth }, index) => {
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 border-t border-border pt-1">
+              {gridDays.map(({ dateStr, dayNumber, isCurrentMonth }) => {
                 const dayEvents = eventsByDate[dateStr] || []
                 const isSelected = dateStr === selectedDate
                 const isToday = dateStr === todayStr
@@ -399,12 +399,12 @@ export default function CalendarView() {
                     onClick={handleDayClick}
                     className={`aspect-square relative flex flex-col items-center justify-center p-0.5 sm:p-1 rounded-xl transition-all cursor-pointer min-h-[40px] select-none ${
                       isSelected 
-                        ? 'bg-primary text-white font-semibold shadow-sm'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
                         : isToday
-                          ? 'bg-blue-50 text-primary font-bold border border-primary/30'
+                          ? 'bg-blue-500/15 dark:bg-blue-500/30 text-primary dark:text-blue-400 font-bold border border-primary/30 dark:border-primary/50'
                           : isSelectedInSetup
-                            ? 'ring-2 ring-primary text-primary font-medium bg-blue-50'
-                            : 'text-gray-800 hover:bg-gray-100'
+                            ? 'ring-2 ring-primary text-primary dark:text-blue-400 font-medium bg-blue-500/10 dark:bg-blue-500/20'
+                            : 'text-foreground hover:bg-secondary'
                     }`}
                   >
                     <span className="text-sm">{dayNumber}</span>
@@ -412,7 +412,7 @@ export default function CalendarView() {
                     {/* Event indicators */}
                     {dayEvents.length > 0 && (
                       <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${
-                        isSelected ? 'bg-white' : 'bg-primary'
+                        isSelected ? 'bg-primary-foreground' : 'bg-primary'
                       }`} />
                     )}
                   </button>
@@ -425,11 +425,11 @@ export default function CalendarView() {
         </div>
 
         {/* Selected Day Agenda */}
-        <div className="bg-white p-5 rounded-2xl border border-border shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
-              <h3 className="font-semibold text-gray-900">Agenda</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="font-semibold text-foreground">Agenda</h3>
+              <p className="text-xs text-muted-foreground">
                 {new Date(selectedDate).toLocaleDateString('en-US', {
                   weekday: 'long',
                   year: 'numeric',
@@ -442,7 +442,7 @@ export default function CalendarView() {
             
             <button
               onClick={openCreateDialog}
-              className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-blue-700 dark:hover:bg-blue-500 text-primary-foreground rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4" />
               Add Event
@@ -451,11 +451,11 @@ export default function CalendarView() {
 
           {/* Agenda list */}
           {loading ? (
-            <div className="py-8 flex justify-center text-sm text-gray-400">
+            <div className="py-8 flex justify-center text-sm text-muted-foreground animate-pulse">
               Loading agenda...
             </div>
           ) : selectedDayEvents.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-400 italic">
+            <div className="py-8 text-center text-sm text-muted-foreground italic">
               No events scheduled for this day
             </div>
           ) : (
@@ -463,15 +463,15 @@ export default function CalendarView() {
               {selectedDayEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="group flex items-start justify-between p-3.5 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="group flex items-start justify-between p-3.5 border border-border rounded-xl hover:bg-secondary/35 transition-colors"
                 >
                   <div className="space-y-1.5 flex-1 pr-4">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm text-gray-900 leading-tight">
+                      <h4 className="font-semibold text-sm text-foreground leading-tight">
                         {event.title}
                       </h4>
                       {event.start_time && (
-                        <div className="flex items-center gap-1 text-[11px] font-medium text-primary bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
+                        <div className="flex items-center gap-1 text-[11px] font-medium text-primary dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/25 px-2 py-0.5 rounded-full shrink-0">
                           <Clock className="w-3 h-3" />
                           <span>
                             {event.start_time.substring(0, 5)}
@@ -481,7 +481,7 @@ export default function CalendarView() {
                       )}
                     </div>
                     {event.description && (
-                      <p className="text-xs text-gray-500 whitespace-pre-line leading-relaxed">
+                      <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
                         {event.description}
                       </p>
                     )}
@@ -489,7 +489,7 @@ export default function CalendarView() {
 
                   <button
                     onClick={() => openEditDialog(event)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors shrink-0"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-colors shrink-0"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -506,7 +506,7 @@ export default function CalendarView() {
       <button
         onClick={openCreateDialog}
         aria-label="Add Event"
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer z-20 md:hidden"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary hover:bg-blue-700 dark:hover:bg-blue-500 text-primary-foreground rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer z-20 md:hidden"
       >
         <Plus className="w-6 h-6" />
       </button>

@@ -55,8 +55,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
         if (error) {
           showToast(error.message, 'error')
         } else {
-          showToast('Signup successful! Welcome to Aura Calendar.', 'success')
-          // Auto log in after signup (Supabase automatically logs in users on signup unless confirmation is forced)
+          showToast('Signup successful! Welcome to Calendar.', 'success')
           router.push('/calendar')
           router.refresh()
         }
@@ -82,12 +81,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="w-full max-w-md p-8 bg-card border border-border rounded-2xl shadow-sm bg-white">
+    <div className="w-full max-w-md p-8 bg-card border border-border rounded-2xl shadow-sm">
       <div className="flex flex-col gap-2 text-center mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           {mode === 'login' 
             ? 'Enter your credentials to access your calendar' 
             : 'Get started with your private and secure calendar'
@@ -95,11 +94,11 @@ export default function AuthForm({ mode }: AuthFormProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
         {mode === 'signup' && (
           <>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider" htmlFor="username">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="username">
                 Username
               </label>
               <input
@@ -109,12 +108,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                 required
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground placeholder:text-muted-foreground"
               />
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider" htmlFor="displayName">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="displayName">
                 Display Name (Optional)
               </label>
               <input
@@ -123,14 +122,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 placeholder="e.g. John Doe"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </>
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider" htmlFor="email">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
             Email Address
           </label>
           <input
@@ -140,12 +139,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider" htmlFor="password">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
             Password
           </label>
           <div className="relative">
@@ -156,12 +155,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full pl-3 pr-10 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+              className="w-full pl-3 pr-10 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-foreground placeholder:text-muted-foreground"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -171,13 +170,13 @@ export default function AuthForm({ mode }: AuthFormProps) {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-2.5 bg-primary hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed mt-2"
+          className="w-full py-2.5 bg-primary hover:bg-blue-700 dark:hover:bg-blue-600 text-primary-foreground font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed mt-2"
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'login' ? 'Sign In' : 'Sign Up'}
         </button>
       </form>
 
-      <div className="mt-6 text-center text-sm text-gray-500">
+      <div className="mt-6 text-center text-sm text-muted-foreground">
         {mode === 'login' ? (
           <p>
             Don't have an account?{' '}

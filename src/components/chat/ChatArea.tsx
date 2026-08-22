@@ -1049,22 +1049,22 @@ export default function ChatArea() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 h-screen max-h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden">
       
       {/* 1. HEADER */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-border shadow-xs">
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-xs">
         <div className="flex items-center gap-3">
           {activeConversation ? (
             <button
               onClick={() => setActiveConversation(null)}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           ) : (
             <button
               onClick={() => router.push('/calendar')}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -1072,7 +1072,7 @@ export default function ChatArea() {
 
           {activeConversation ? (
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-blue-100 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
+              <div className="w-9 h-9 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
                 {(partnerProfile || activeConversation.partner).avatar_url ? (
                   <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
                 ) : (
@@ -1080,12 +1080,12 @@ export default function ChatArea() {
                 )}
               </div>
               <div className="flex flex-col">
-                <span className="font-semibold text-sm text-gray-900 leading-tight">
+                <span className="font-semibold text-sm text-foreground leading-tight">
                   {(partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username}
                 </span>
                 {profile?.active_status_enabled !== false && (partnerProfile || activeConversation.partner).active_status_enabled !== false && (
-                  <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-400 mt-0.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground mt-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isPartnerOnline ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
                     {isPartnerOnline ? 'Online' : formatLastSeen((partnerProfile || activeConversation.partner).last_seen)}
                   </span>
                 )}
@@ -1094,7 +1094,7 @@ export default function ChatArea() {
           ) : (
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              <span className="font-semibold text-base text-gray-900 tracking-tight">Private Space</span>
+              <span className="font-semibold text-base text-foreground tracking-tight">Private Space</span>
             </div>
           )}
         </div>
@@ -1104,10 +1104,10 @@ export default function ChatArea() {
             <button
               type="button"
               onClick={() => setIsGamesMenuOpen(true)}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
               title="Games"
             >
-              <Gamepad2 className="w-5 h-5 text-gray-600" />
+              <Gamepad2 className="w-5 h-5 text-muted-foreground" />
             </button>
           )}
           {activeConversation && (
@@ -1119,7 +1119,7 @@ export default function ChatArea() {
                 }
               }}
               title="Delete Full Conversation"
-              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-gray-500 hover:text-red-600 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2.5 rounded-xl border border-border bg-card hover:bg-red-500/10 text-muted-foreground hover:text-red-650 dark:hover:text-red-400 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <Trash2 className="w-4.5 h-4.5" />
             </button>
@@ -1128,9 +1128,9 @@ export default function ChatArea() {
             <button
               onClick={() => setShowProfileModal(true)}
               title="Edit Profile"
-              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              <div className="w-5.5 h-5.5 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center font-bold text-[10px] text-gray-500 uppercase select-none">
+              <div className="w-5.5 h-5.5 rounded-full overflow-hidden bg-secondary flex items-center justify-center font-bold text-[10px] text-muted-foreground uppercase select-none">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
@@ -1142,7 +1142,7 @@ export default function ChatArea() {
           <button
             onClick={handleLockExit}
             title="Lock Private Space"
-            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground hover:text-primary transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <Lock className="w-4.5 h-4.5" />
           </button>
@@ -1155,21 +1155,21 @@ export default function ChatArea() {
         <div className="flex-1 flex flex-col md:flex-row max-w-4xl w-full mx-auto p-4 gap-4 overflow-hidden">
           
           {/* List panel */}
-          <div className="flex-1 bg-white border border-border rounded-2xl flex flex-col overflow-hidden shadow-xs">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
-              <h2 className="font-semibold text-sm text-gray-800">Conversations</h2>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-white px-2 py-0.5 rounded-full border border-gray-100">
+          <div className="flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-xs">
+            <div className="px-4 py-3 border-b border-border bg-secondary/50 flex items-center justify-between shrink-0">
+              <h2 className="font-semibold text-sm text-foreground">Conversations</h2>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card px-2 py-0.5 rounded-full border border-border">
                 {conversations.length} Active
               </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-100 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto divide-y divide-border custom-scrollbar">
               {loadingConversations ? (
-                <div className="py-12 flex justify-center text-sm text-gray-400">
+                <div className="py-12 flex justify-center text-sm text-muted-foreground animate-pulse">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : conversations.length === 0 ? (
-                <div className="py-16 text-center text-sm text-gray-400 italic">
+                <div className="py-16 text-center text-sm text-muted-foreground italic">
                   No private chats started yet
                 </div>
               ) : (
@@ -1177,9 +1177,9 @@ export default function ChatArea() {
                   <button
                     key={conv.id}
                     onClick={() => setActiveConversation(conv)}
-                    className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 text-left transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-3 p-4 hover:bg-secondary/40 text-left transition-colors cursor-pointer"
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-50 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
                       {conv.partner.avatar_url ? (
                         <img src={conv.partner.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -1187,15 +1187,15 @@ export default function ChatArea() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm text-gray-900 truncate">
+                      <h3 className="font-semibold text-sm text-foreground truncate">
                         {conv.partner.display_name || conv.partner.username}
                       </h3>
-                      <p className="text-xs text-gray-400 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         @{conv.partner.username}
                       </p>
                     </div>
                     {conv.unreadCount && conv.unreadCount > 0 ? (
-                      <div className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0 animate-pulse">
+                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0 animate-pulse">
                         {conv.unreadCount}
                       </div>
                     ) : null}
@@ -1206,10 +1206,10 @@ export default function ChatArea() {
           </div>
 
           {/* Setup / Invite panel */}
-          <div className="w-full md:w-80 bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4 shrink-0 h-fit">
+          <div className="w-full md:w-80 bg-card border border-border rounded-2xl p-5 shadow-xs space-y-4 shrink-0 h-fit">
             <div className="space-y-1">
-              <h2 className="font-semibold text-sm text-gray-950">Add Authorized User</h2>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <h2 className="font-semibold text-sm text-foreground">Add Authorized User</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Connect with another user by inputting their exact username below. Conversations are limited to 2 people.
               </p>
             </div>
@@ -1222,14 +1222,14 @@ export default function ChatArea() {
                   value={partnerUsername}
                   onChange={(e) => setPartnerUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
                   required
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 placeholder:text-gray-450"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isStartingChat || !partnerUsername.trim()}
-                className="w-full py-2 bg-primary hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                className="w-full py-2 bg-primary hover:bg-blue-700 text-primary-foreground font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 {isStartingChat && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Partner
@@ -1241,7 +1241,7 @@ export default function ChatArea() {
       ) : (
         /* CONVERSATION ACTIVE: SCROLLABLE CHAT FEED & COMPOSER */
         <div 
-          className="flex-1 flex flex-col max-w-3xl w-full mx-auto overflow-hidden bg-white border-x border-border shadow-xs relative"
+          className="flex-1 flex flex-col max-w-3xl w-full mx-auto overflow-hidden bg-card border-x border-border shadow-xs relative"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -1249,10 +1249,10 @@ export default function ChatArea() {
           {/* Drag and Drop Overlay */}
           {isDragging && (
             <div className="absolute inset-0 bg-primary/5 backdrop-blur-xs border-2 border-dashed border-primary z-50 flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-150">
-              <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-3">
+              <div className="bg-card p-6 rounded-2xl border border-border shadow-xl flex flex-col items-center gap-3">
                 <ImageIcon className="w-10 h-10 text-primary animate-bounce" />
-                <h3 className="font-bold text-sm text-gray-800">Drop images here</h3>
-                <p className="text-xs text-gray-500">They will be added to your attachments.</p>
+                <h3 className="font-bold text-sm text-foreground">Drop images here</h3>
+                <p className="text-xs text-muted-foreground">They will be added to your attachments.</p>
               </div>
             </div>
           )}
@@ -1269,23 +1269,23 @@ export default function ChatArea() {
             {loadingMessages ? (
               <div className="space-y-6 animate-pulse py-2">
                 <div className="flex flex-col items-start max-w-[70%] space-y-1.5">
-                  <div className="h-9 w-32 bg-gray-100 rounded-2xl rounded-tl-none border border-gray-150" />
-                  <div className="h-2.5 w-12 bg-gray-200 rounded-full ml-1" />
+                  <div className="h-9 w-32 bg-secondary rounded-2xl rounded-tl-none border border-border" />
+                  <div className="h-2.5 w-12 bg-muted-foreground/20 rounded-full ml-1" />
                 </div>
                 <div className="flex flex-col items-end max-w-[70%] ml-auto space-y-1.5">
-                  <div className="h-9 w-44 bg-blue-50 rounded-2xl rounded-tr-none border border-blue-100" />
-                  <div className="h-2.5 w-12 bg-gray-200 rounded-full mr-1" />
+                  <div className="h-9 w-44 bg-blue-500/10 rounded-2xl rounded-tr-none border border-blue-500/20" />
+                  <div className="h-2.5 w-12 bg-muted-foreground/20 rounded-full mr-1" />
                 </div>
                 <div className="flex flex-col items-start max-w-[70%] space-y-1.5">
-                  <div className="h-9 w-24 bg-gray-100 rounded-2xl rounded-tl-none border border-gray-150" />
-                  <div className="h-2.5 w-12 bg-gray-200 rounded-full ml-1" />
+                  <div className="h-9 w-24 bg-secondary rounded-2xl rounded-tl-none border border-border" />
+                  <div className="h-2.5 w-12 bg-muted-foreground/20 rounded-full ml-1" />
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 space-y-2">
-                <Smile className="w-10 h-10 text-gray-300" />
-                <h3 className="font-semibold text-sm text-gray-800">Secure Conversation</h3>
-                <p className="text-xs text-gray-500 max-w-[240px] leading-relaxed">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground space-y-2">
+                <Smile className="w-10 h-10 text-muted-foreground/60" />
+                <h3 className="font-semibold text-sm text-foreground">Secure Conversation</h3>
+                <p className="text-xs text-muted-foreground max-w-[240px] leading-relaxed">
                   Say hello! This chat is encrypted using server session protection and Row-Level Security.
                 </p>
               </div>
@@ -1294,7 +1294,7 @@ export default function ChatArea() {
                 <div key={dateLabel} className="space-y-4">
                   {/* Date Separator */}
                   <div className="flex justify-center">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/80 px-3 py-1 rounded-full border border-border">
                       {dateLabel}
                     </span>
                   </div>
@@ -1350,7 +1350,7 @@ export default function ChatArea() {
                                   setReplyingTo(m)
                                   textareaRef.current?.focus()
                                 }}
-                                className="w-7 h-7 rounded-full flex items-center justify-center bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm shrink-0 cursor-pointer"
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-card text-muted-foreground border border-border hover:bg-secondary transition-colors shadow-sm shrink-0 cursor-pointer"
                               >
                                 <Reply className="w-3.5 h-3.5" />
                               </button>
@@ -1372,12 +1372,12 @@ export default function ChatArea() {
                             }}
                             className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed touch-pan-y transition-all ${
                               isDeleted
-                                ? 'bg-gray-100 text-gray-400 italic border border-gray-150'
+                                ? 'bg-secondary text-muted-foreground italic border border-border'
                                 : (m.message_type === 'gif' || m.message_type === 'sticker' || m.message_type === 'game' || (m.message_type === 'image' && !m.content))
                                   ? 'bg-transparent p-0 shadow-none border-none'
                                   : isOwn
                                     ? 'bg-primary text-white font-medium rounded-tr-none'
-                                    : 'bg-gray-100 text-gray-800 font-medium rounded-tl-none border border-gray-150'
+                                    : 'bg-secondary text-foreground font-medium rounded-tl-none border border-border'
                             }`}
                           >
                             {/* Inner Reply Card (nested inside bubble) */}
@@ -1387,13 +1387,13 @@ export default function ChatArea() {
                                 className={`flex flex-col text-left px-2.5 py-1.5 border-l-2 mb-2 rounded-r-md text-[11px] cursor-pointer transition-colors ${
                                   isOwn 
                                     ? 'bg-black/10 border-white/50 text-blue-100 hover:bg-black/15' 
-                                    : 'bg-black/5 border-gray-400 text-gray-600 hover:bg-black/10'
+                                    : 'bg-black/5 dark:bg-white/5 border-muted-foreground text-muted-foreground hover:bg-black/10 dark:hover:bg-white/10'
                                 }`}
                               >
-                                <span className={`font-semibold text-[10px] ${isOwn ? 'text-white' : 'text-gray-700'}`}>
+                                <span className={`font-semibold text-[10px] ${isOwn ? 'text-white' : 'text-foreground'}`}>
                                   Replying to {m.reply_preview.sender_name}
                                 </span>
-                                <span className={`truncate max-w-[220px] italic ${isOwn ? 'text-blue-100/90' : 'text-gray-500'}`}>
+                                <span className={`truncate max-w-[220px] italic ${isOwn ? 'text-blue-100/90' : 'text-muted-foreground'}`}>
                                   {m.reply_preview.message_type === 'image' ? '📷 Image' : m.reply_preview.content}
                                 </span>
                               </div>
@@ -1402,25 +1402,25 @@ export default function ChatArea() {
                             {isDeleted ? (
                               'This message was deleted.'
                             ) : editingMessageId === m.id ? (
-                              <div className="flex flex-col gap-2 min-w-[200px] text-gray-800 py-1">
+                              <div className="flex flex-col gap-2 min-w-[200px] text-foreground py-1">
                                 <textarea
                                   value={editInputText}
                                   onChange={(e) => setEditInputText(e.target.value)}
-                                  className="w-full p-2 text-xs bg-white text-gray-950 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-full p-2 text-xs bg-card text-foreground border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
                                   rows={2}
                                 />
                                 <div className="flex justify-end gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => setEditingMessageId(null)}
-                                    className="px-2.5 py-1 text-[10px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer min-h-[30px]"
+                                    className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground bg-secondary hover:bg-secondary/80 rounded-md cursor-pointer min-h-[30px]"
                                   >
                                     Cancel
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleSaveEdit(m.id)}
-                                    className="px-2.5 py-1 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 rounded-md cursor-pointer min-h-[30px]"
+                                    className="px-2.5 py-1 text-[10px] font-bold text-primary-foreground bg-primary hover:bg-blue-600 dark:hover:bg-blue-500 rounded-md cursor-pointer min-h-[30px]"
                                   >
                                     Save
                                   </button>
@@ -1452,7 +1452,7 @@ export default function ChatArea() {
                                   />
                                 ) : null}
                                 {m.content && (
-                                  <p className={`text-sm pt-0.5 leading-snug break-words ${isOwn ? 'text-white' : 'text-gray-800'}`}>
+                                  <p className={`text-sm pt-0.5 leading-snug break-words ${isOwn ? 'text-white' : 'text-foreground'}`}>
                                     {m.content}
                                   </p>
                                 )}
@@ -1508,7 +1508,7 @@ export default function ChatArea() {
                             <div className={`text-[9px] mt-1 text-right shrink-0 select-none flex items-center justify-end gap-0.5 ${
                               isOwn && !(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content))
                                 ? 'text-blue-200' 
-                                : 'text-gray-400'
+                                : 'text-muted-foreground'
                             }`}>
                               {m.edited_at && <span className="text-[8px] opacity-75 mr-1 font-semibold">(edited)</span>}
                               <span>
@@ -1520,13 +1520,13 @@ export default function ChatArea() {
                               </span>
                               {isOwn && !isDeleted && (
                                 m.status === 'pending' ? (
-                                  <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
+                                  <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
                                 ) : m.read_at ? (
                                   <CheckCheck className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-primary' : 'text-blue-100'}`} />
                                 ) : m.delivered_at ? (
-                                  <CheckCheck className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-gray-400' : 'text-blue-200/50'}`} />
+                                  <CheckCheck className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-muted-foreground' : 'text-blue-200/50'}`} />
                                 ) : (
-                                  <Check className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-gray-400/70' : 'text-blue-200/40'}`} />
+                                  <Check className={`w-3.5 h-3.5 ${(m.message_type === 'gif' || m.message_type === 'sticker' || (m.message_type === 'image' && !m.content)) ? 'text-muted-foreground/70' : 'text-blue-200/40'}`} />
                                 )
                               )}
                             </div>
@@ -1543,8 +1543,8 @@ export default function ChatArea() {
                                 onClick={() => handleToggleReaction(m.id, emoji)}
                                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
                                   isActive
-                                    ? 'bg-blue-50 border-primary text-primary'
-                                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                    ? 'bg-primary/10 border-primary text-primary dark:text-blue-400'
+                                    : 'bg-card border-border text-muted-foreground hover:bg-secondary'
                                 }`}
                               >
                                 <span>{emoji}</span>
@@ -1563,19 +1563,19 @@ export default function ChatArea() {
             {/* Realtime Typing Indicator bubble */}
             {partnerIsTyping && (
               <div className="flex items-center gap-2 mr-auto ml-1 animate-pulse mb-2">
-                <div className="w-7 h-7 rounded-full bg-blue-50 text-primary font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden text-[10px]">
+                <div className="w-7 h-7 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden text-[10px]">
                   {(partnerProfile || activeConversation.partner).avatar_url ? (
                     <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
                   ) : (
                     ((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)
                   )}
                 </div>
-                <div className="bg-gray-100 text-gray-500 font-medium px-3.5 py-2 rounded-2xl rounded-tl-none border border-gray-150 text-[11px] flex items-center gap-1.5 shadow-sm">
+                <div className="bg-secondary text-muted-foreground font-medium px-3.5 py-2 rounded-2xl rounded-tl-none border border-border text-[11px] flex items-center gap-1.5 shadow-sm">
                   <span>typing</span>
                   <span className="flex gap-0.5 items-center pt-1">
-                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1 h-1 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
                 </div>
               </div>
@@ -1589,19 +1589,19 @@ export default function ChatArea() {
               <button
                 type="button"
                 onClick={handleScrollToBottom}
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white hover:bg-gray-50 text-gray-650 hover:text-gray-900 border border-gray-200 shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 animate-in fade-in zoom-in-75 duration-200 z-30"
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card hover:bg-secondary text-foreground border border-border shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 animate-in fade-in zoom-in-75 duration-200 z-30"
               >
                 <ChevronDown className="w-5 h-5" />
               </button>
             )}
           </div>
 
-          <div className="border-t border-border bg-white px-4 py-3 space-y-2 shrink-0">
+          <div className="border-t border-border bg-card px-4 py-3 space-y-2 shrink-0">
             {/* Multi-Image Attachment Queue */}
             {attachmentImages.length > 0 && (
-              <div className="flex flex-wrap gap-2.5 pb-2 border-b border-gray-100 max-h-32 overflow-y-auto animate-in slide-in-from-bottom-2 duration-200">
+              <div className="flex flex-wrap gap-2.5 pb-2 border-b border-border max-h-32 overflow-y-auto animate-in slide-in-from-bottom-2 duration-200">
                 {attachmentImages.map((img) => (
-                  <div key={img.id} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex shrink-0 group">
+                  <div key={img.id} className="relative w-16 h-16 rounded-xl overflow-hidden border border-border bg-secondary flex shrink-0 group">
                     <img src={img.preview} alt="Attachment" className="w-full h-full object-cover" />
                     
                     {/* Status overlay */}
@@ -1648,16 +1648,16 @@ export default function ChatArea() {
 
             {/* Image Preview Container */}
             {imagePreview && (
-              <div className="relative flex items-center justify-between p-2 bg-gray-50 border border-gray-150 rounded-xl max-w-sm animate-in slide-in-from-bottom-2 duration-200">
+              <div className="relative flex items-center justify-between p-2 bg-secondary border border-border rounded-xl max-w-sm animate-in slide-in-from-bottom-2 duration-200">
                 <div className="flex items-center gap-2">
                   <img src={imagePreview} alt="Upload preview" className="w-12 h-12 object-cover rounded-lg" />
-                  <span className="text-xs text-gray-500 truncate max-w-[150px]">
+                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">
                     {selectedFile?.name}
                   </span>
                 </div>
                 <button
                   onClick={handleCancelImage}
-                  className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 transition-colors cursor-pointer"
+                  className="p-1 rounded-full bg-secondary hover:bg-secondary/80 text-foreground transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1666,18 +1666,18 @@ export default function ChatArea() {
 
             {/* Reply Preview Container */}
             {replyingTo && (
-              <div className="flex items-center justify-between p-2.5 bg-blue-50/50 border-l-2 border-primary rounded-r-xl animate-in slide-in-from-bottom-2 duration-200">
+              <div className="flex items-center justify-between p-2.5 bg-blue-500/10 border-l-2 border-primary rounded-r-xl animate-in slide-in-from-bottom-2 duration-200">
                 <div className="flex flex-col text-left text-xs">
                   <span className="font-semibold text-[10px] text-primary">
                     Replying to {replyingTo.sender_id === user?.id ? 'Yourself' : activeConversation.partner.display_name}
                   </span>
-                  <span className="text-gray-600 truncate max-w-[240px]">
+                  <span className="text-muted-foreground truncate max-w-[240px]">
                     {replyingTo.message_type === 'image' ? '📷 Image' : replyingTo.content}
                   </span>
                 </div>
                 <button
                   onClick={() => setReplyingTo(null)}
-                  className="p-1 rounded-full text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                  className="p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1691,7 +1691,7 @@ export default function ChatArea() {
                 type="button"
                 onClick={() => setShowImageSourceSheet(true)}
                 disabled={isUploading}
-                className="p-2.5 rounded-xl border border-gray-250 bg-white hover:bg-gray-50 text-gray-600 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
+                className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-50"
                 title="Add Images"
               >
                 <ImageIcon className="w-5 h-5" />
@@ -1708,8 +1708,8 @@ export default function ChatArea() {
                     setShowStickerPicker(false)
                   }
                 }}
-                className={`p-2.5 rounded-xl border border-gray-250 bg-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 ${
-                  (showEmojiPicker || showGifPicker || showStickerPicker) ? 'text-primary border-primary bg-blue-50/50' : 'text-gray-600 hover:bg-gray-50'
+                className={`p-2.5 rounded-xl border border-border bg-card transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 ${
+                  (showEmojiPicker || showGifPicker || showStickerPicker) ? 'text-primary border-primary bg-blue-500/10' : 'text-foreground hover:bg-secondary'
                 }`}
                 title="Emojis & Stickers"
               >
@@ -1731,7 +1731,7 @@ export default function ChatArea() {
                 }}
                 placeholder="Write a message..."
                 rows={1}
-                className="flex-1 px-3.5 py-2.5 border border-border bg-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 placeholder:text-gray-400 resize-none min-h-[44px] max-h-24 custom-scrollbar leading-snug"
+                className="flex-1 px-3.5 py-2.5 border border-border bg-card rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-24 custom-scrollbar leading-snug"
               />
 
               {/* Send Button */}
@@ -1742,7 +1742,7 @@ export default function ChatArea() {
                   e.preventDefault()
                 }}
                 disabled={isUploading || (!inputText.trim() && attachmentImages.length === 0 && !selectedFile)}
-                className="p-2.5 rounded-xl bg-primary hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="p-2.5 rounded-xl bg-primary hover:bg-blue-750 text-primary-foreground transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Send className="w-5 h-5" />
               </button>
@@ -1750,31 +1750,31 @@ export default function ChatArea() {
 
             {/* Inline Tabbed Pickers Container */}
             {(showEmojiPicker || showGifPicker || showStickerPicker) && (
-              <div className="border border-gray-200 rounded-xl mt-2 overflow-hidden bg-white shadow-md animate-in slide-in-from-bottom-2 duration-150 shrink-0">
-                <div className="flex border-b border-gray-150 bg-gray-50 text-xs font-bold text-gray-600">
+              <div className="border border-border rounded-xl mt-2 overflow-hidden bg-card shadow-md animate-in slide-in-from-bottom-2 duration-150 shrink-0">
+                <div className="flex border-b border-border bg-secondary/50 text-xs font-bold text-muted-foreground">
                   <button
                     type="button"
                     onClick={() => { setShowEmojiPicker(true); setShowGifPicker(false); setShowStickerPicker(false); }}
-                    className={`flex-1 py-2 text-center border-r border-gray-150 cursor-pointer ${showEmojiPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                    className={`flex-1 py-2 text-center border-r border-border cursor-pointer ${showEmojiPicker ? 'bg-card text-primary' : 'hover:bg-secondary'}`}
                   >
                     Emojis
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowEmojiPicker(false); setShowGifPicker(true); setShowStickerPicker(false); }}
-                    className={`flex-1 py-2 text-center border-r border-gray-150 cursor-pointer ${showGifPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                    className={`flex-1 py-2 text-center border-r border-border cursor-pointer ${showGifPicker ? 'bg-card text-primary' : 'hover:bg-secondary'}`}
                   >
                     GIFs
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowEmojiPicker(false); setShowGifPicker(false); setShowStickerPicker(true); }}
-                    className={`flex-1 py-2 text-center cursor-pointer ${showStickerPicker ? 'bg-white text-primary' : 'hover:bg-gray-100'}`}
+                    className={`flex-1 py-2 text-center cursor-pointer ${showStickerPicker ? 'bg-card text-primary' : 'hover:bg-secondary'}`}
                   >
                     Stickers
                   </button>
                 </div>
-                <div className="h-60 overflow-y-auto p-2 bg-gray-50/50">
+                <div className="h-60 overflow-y-auto p-2 bg-secondary/20">
                   {showEmojiPicker && <EmojiPicker onSelect={handleSelectEmoji} onClose={() => setShowEmojiPicker(false)} />}
                   {showGifPicker && <GifPicker onSelect={handleSelectGif} onClose={() => setShowGifPicker(false)} />}
                   {showStickerPicker && <StickerPicker onSelect={handleSelectSticker} onClose={() => setShowStickerPicker(false)} />}
@@ -1870,15 +1870,15 @@ export default function ChatArea() {
           onClick={() => setShowImageSourceSheet(false)}
         >
           <div 
-            className="w-full bg-white rounded-t-[2.5rem] p-6 pb-8 space-y-5 animate-in slide-in-from-bottom duration-250 z-50 shadow-2xl max-w-md"
+            className="w-full bg-card rounded-t-[2.5rem] p-6 pb-8 space-y-5 animate-in slide-in-from-bottom duration-250 z-50 shadow-2xl max-w-md border-t border-border"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Grab handle indicator */}
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-1" />
+            <div className="w-12 h-1.5 bg-border rounded-full mx-auto mb-1" />
             
             <div className="text-center">
-              <h3 className="text-base font-bold text-gray-900 leading-snug">Select Image</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Take a new photo or browse your gallery</p>
+              <h3 className="text-base font-bold text-foreground leading-snug">Select Image</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Take a new photo or browse your gallery</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-2">
@@ -1889,12 +1889,12 @@ export default function ChatArea() {
                   setShowImageSourceSheet(false)
                   handleCameraCapture()
                 }}
-                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-gray-150 bg-gray-50/50 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer shrink-0"
+                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary active:bg-secondary/80 transition-colors cursor-pointer shrink-0"
               >
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-primary flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 flex items-center justify-center">
                   <CameraIcon className="w-6 h-6" />
                 </div>
-                <span className="text-xs font-bold text-gray-800">Camera</span>
+                <span className="text-xs font-bold text-foreground">Camera</span>
               </button>
 
               {/* Option: Gallery */}
@@ -1904,12 +1904,12 @@ export default function ChatArea() {
                   setShowImageSourceSheet(false)
                   handleNativeGalleryPick()
                 }}
-                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-gray-150 bg-gray-50/50 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer shrink-0"
+                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary active:bg-secondary/80 transition-colors cursor-pointer shrink-0"
               >
-                <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <span className="text-xs font-bold text-gray-800">Gallery</span>
+                <span className="text-xs font-bold text-foreground">Gallery</span>
               </button>
             </div>
 
@@ -1917,7 +1917,7 @@ export default function ChatArea() {
             <button
               type="button"
               onClick={() => setShowImageSourceSheet(false)}
-              className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors cursor-pointer mt-2 text-center"
+              className="w-full py-3.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl transition-colors cursor-pointer mt-2 text-center"
             >
               Cancel
             </button>

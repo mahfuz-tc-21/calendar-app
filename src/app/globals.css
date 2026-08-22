@@ -97,3 +97,41 @@ html {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Dark Mode semantic design tokens */
+.dark {
+  --background: #080c14;
+  --foreground: #f3f4f6;
+
+  --card: #111625;
+  --card-foreground: #f3f4f6;
+
+  --popover: #111625;
+  --popover-foreground: #f3f4f6;
+
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+
+  --secondary: #192030;
+  --secondary-foreground: #e5e7eb;
+
+  --muted: #0d121f;
+  --muted-foreground: #9ca3af;
+
+  --accent: #1d4ed8;
+  --accent-foreground: #eff6ff;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #1f273d;
+  --input: #1f273d;
+  --ring: #3b82f6;
+}

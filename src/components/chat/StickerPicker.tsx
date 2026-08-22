@@ -8,8 +8,6 @@ interface Sticker {
   url: string
 }
 
-// 12 beautiful, curated high-quality stickers using static direct open URLs/assets
-// We use free, public, permanent, high-quality, transparent vector-style character stickers that load beautifully.
 const CURATED_STICKERS: Sticker[] = [
   {
     id: 'sticker_cat_love',
@@ -53,7 +51,6 @@ const CURATED_STICKERS: Sticker[] = [
   }
 ]
 
-// To make this 100% offline-friendly and native-looking, we also render 12 high-quality vector CSS-styled sticker designs
 const VECTOR_STICKERS = [
   {
     id: 'vector_sticker_heart',
@@ -130,27 +127,27 @@ interface StickerPickerProps {
 
 export default function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
   return (
-    <div className="flex flex-col bg-white border border-gray-200 rounded-2xl shadow-lg w-full max-w-sm h-72 overflow-hidden animate-in slide-in-from-bottom duration-200">
+    <div className="flex flex-col bg-card border border-border rounded-2xl shadow-lg w-full max-w-sm h-72 overflow-hidden animate-in slide-in-from-bottom duration-200">
       
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
-        <span className="text-xs font-bold text-gray-700">Curated Sticker Pack</span>
+      <div className="px-3 py-2 border-b border-border bg-secondary/50 flex items-center justify-between shrink-0">
+        <span className="text-xs font-bold text-foreground">Curated Sticker Pack</span>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs font-semibold text-gray-500 hover:text-gray-800 bg-white border border-gray-200 px-2.5 py-1 rounded-lg cursor-pointer"
+          className="text-xs font-semibold text-muted-foreground hover:text-foreground bg-card border border-border px-2.5 py-1 rounded-lg cursor-pointer"
         >
           Close
         </button>
       </div>
 
       {/* Stickers Grid list */}
-      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar bg-white">
+      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar bg-card">
         <div className="space-y-4">
           
           {/* Vector Stickers (100% Offline-friendly) */}
           <div>
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1 mb-2">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1 mb-2">
               Offline Vector Stickers
             </h4>
             <div className="grid grid-cols-4 gap-3">
@@ -159,7 +156,7 @@ export default function StickerPicker({ onSelect, onClose }: StickerPickerProps)
                   key={stk.id}
                   type="button"
                   onClick={() => onSelect(stk.id, stk.render)}
-                  className="aspect-square flex items-center justify-center p-2 border border-gray-100 hover:border-primary active:bg-gray-50 rounded-xl transition-all cursor-pointer bg-white"
+                  className="aspect-square flex items-center justify-center p-2 border border-border hover:border-primary active:bg-secondary rounded-xl transition-all cursor-pointer bg-card"
                   title={stk.name}
                 >
                   {stk.render()}
@@ -170,7 +167,7 @@ export default function StickerPicker({ onSelect, onClose }: StickerPickerProps)
 
           {/* Photo stickers */}
           <div>
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1 mb-2">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1 mb-2">
               Character Stickers
             </h4>
             <div className="grid grid-cols-4 gap-3">
@@ -179,7 +176,7 @@ export default function StickerPicker({ onSelect, onClose }: StickerPickerProps)
                   key={stk.id}
                   type="button"
                   onClick={() => onSelect(stk.id)}
-                  className="aspect-square relative overflow-hidden border border-gray-100 hover:border-primary active:opacity-80 rounded-xl transition-all cursor-pointer p-1 bg-gray-50 flex items-center justify-center"
+                  className="aspect-square relative overflow-hidden border border-border hover:border-primary active:opacity-80 rounded-xl transition-all cursor-pointer p-1 bg-secondary flex items-center justify-center"
                   title={stk.name}
                 >
                   <img
