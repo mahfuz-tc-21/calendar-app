@@ -70,9 +70,11 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
     console.log(`[CALENDAR_UPDATER] ${msg}`);
     setDebugLog(prev => [...prev.slice(-9), msg]); // keep last 10 lines
   };
-  const showDebugOverlay = true; // Always show during debugging
+  const showDebugOverlay = process.env.NODE_ENV !== 'production';
 
   const downloadListenerRef = useRef<any>(null);
+  const checkInProgressRef = useRef(false);
+  const lastCheckTimeRef = useRef<number>(0);
 
   const getManifestUrl = (): string | null => {
     if (process.env.NEXT_PUBLIC_UPDATE_MANIFEST_URL) {
@@ -88,47 +90,42 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
   };
 
   const checkForUpdate = async (force = false) => {
-    appendDebug('CHECKING');
-
-    // Only run on native Android (but log platform)
-    const platform = Capacitor.getPlatform();
-    appendDebug(`PLATFORM: ${platform}`);
-    if (platform !== 'android') return;
-
-    // Check network connectivity first
-    const netStatus = await Network.getStatus();
-    appendDebug(`NETWORK: ${netStatus.connected ? 'online' : 'offline'}`);
-    if (!netStatus.connected) return;
-
-    const manifestUrl = getManifestUrl();
-    if (!manifestUrl) {
-      appendDebug('ERROR: No manifest URL');
-      console.warn('[CALENDAR_UPDATER] Update manifest URL is not configured.');
+    if (checkInProgressRef.current) {
+      console.log('[CALENDAR_UPDATER] Skip check: already in progress');
+      return;
+    }
+    const now = Date.now();
+    if (now - lastCheckTimeRef.current < 3000) {
+      console.log('[CALENDAR_UPDATER] Skip check: too soon');
       return;
     }
 
-    appendDebug(`MANIFEST: ${manifestUrl.replace('https://', '')}`);
-
-    // Cache throttle check: 12 hours
-    const now = Date.now();
-    const THROTTLE_MS = 12 * 60 * 60 * 1000;
-    if (!force) {
-      try {
-        const { value: lastCheck } = await Preferences.get({ key: 'last_update_check_time' });
-        if (lastCheck && now - parseInt(lastCheck, 10) < THROTTLE_MS) {
-          const hoursAgo = ((now - parseInt(lastCheck, 10)) / 3600000).toFixed(1);
-          appendDebug(`Throttled (${hoursAgo}h ago)`);
-          console.log('[CALENDAR_UPDATER] Skipping — checked ' + hoursAgo + 'h ago');
-          return;
-        }
-      } catch (e) {
-        // Silently continue if preferences fail
-      }
-    }
-
-    setIsChecking(true);
+    checkInProgressRef.current = true;
+    appendDebug('CHECKING');
 
     try {
+      // Only run on native Android (but log platform)
+      const platform = Capacitor.getPlatform();
+      appendDebug(`PLATFORM: ${platform}`);
+      if (platform !== 'android') return;
+
+      // Check network connectivity first
+      const netStatus = await Network.getStatus();
+      appendDebug(`NETWORK: ${netStatus.connected ? 'online' : 'offline'}`);
+      if (!netStatus.connected) return;
+
+      const manifestUrl = getManifestUrl();
+      if (!manifestUrl) {
+        appendDebug('ERROR: No manifest URL');
+        console.warn('[CALENDAR_UPDATER] Update manifest URL is not configured.');
+        return;
+      }
+
+      appendDebug(`MANIFEST: ${manifestUrl.replace('https://', '')}`);
+
+      setIsChecking(true);
+      lastCheckTimeRef.current = Date.now();
+
       // Fetch latest metadata
       const res = await fetch(manifestUrl, { cache: 'no-store' });
       appendDebug(`HTTP: ${res.status}`);
@@ -157,9 +154,6 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
         const mustUpdate = latest.mandatory || current.versionCode < minSupported;
         setIsMandatory(mustUpdate);
         setShowModal(true);
-
-        // Record successful update check time
-        await Preferences.set({ key: 'last_update_check_time', value: now.toString() });
       } else {
         appendDebug('Up to date');
         console.log('[CALENDAR_UPDATER] App is up to date.');
@@ -170,6 +164,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       // Fail silently without blocking the user
     } finally {
       setIsChecking(false);
+      checkInProgressRef.current = false;
     }
   };
 
