@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Rewrite /latest.json → /api/latest.json so that old APK versions
+  // (v1.0.5 and earlier) that use the legacy URL continue to receive
+  // update manifests. Rewrites are ignored during `next export` (mobile
+  // static builds) — this only applies to the Vercel server deployment.
+  async rewrites() {
+    return [
+      {
+        source: '/latest.json',
+        destination: '/api/latest.json',
+      },
+    ]
+  },
   async headers() {
     return [
       {

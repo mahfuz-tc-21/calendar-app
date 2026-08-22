@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+// Shared no-cache + CORS headers — identical to /api/update
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
   'Pragma': 'no-cache',
@@ -9,6 +10,13 @@ const NO_CACHE_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
+/**
+ * Legacy backward-compat endpoint for old APK versions (v1.0.5 and earlier).
+ * Those builds were compiled with the fallback URL:
+ *   NEXT_PUBLIC_HOSTED_URL + "/latest.json"
+ * Vercel rewrites /latest.json -> /api/latest.json (see next.config.ts).
+ * This route returns the exact same payload as /api/update.
+ */
 export async function GET() {
   try {
     const res = await fetch(

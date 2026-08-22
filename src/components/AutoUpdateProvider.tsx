@@ -72,9 +72,9 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
     }
     const host = process.env.NEXT_PUBLIC_HOSTED_URL;
     if (host) {
-      // Ensure trailing slash behavior
+      // Canonical endpoint — CORS-safe proxy on the Vercel server
       const base = host.endsWith('/') ? host.slice(0, -1) : host;
-      return `${base}/latest.json`;
+      return `${base}/api/update`;
     }
     return null;
   };
@@ -89,9 +89,11 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
 
     const manifestUrl = getManifestUrl();
     if (!manifestUrl) {
-      console.warn('AutoUpdate: Update manifest URL is not configured.');
+      console.warn('[Updater] Update manifest URL is not configured.');
       return;
     }
+
+    console.log(`[Updater] Manifest URL: ${manifestUrl}`);
 
     // Cache throttle check: 12 hours
     const now = Date.now();
@@ -100,6 +102,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       try {
         const { value: lastCheck } = await Preferences.get({ key: 'last_update_check_time' });
         if (lastCheck && now - parseInt(lastCheck, 10) < THROTTLE_MS) {
+          console.log('[Updater] Skipping check — last checked less than 12 hours ago.');
           return; // Skip checking to save bandwidth
         }
       } catch (e) {
@@ -112,6 +115,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
     try {
       // Fetch latest metadata
       const res = await fetch(manifestUrl, { cache: 'no-store' });
+      console.log(`[Updater] HTTP status: ${res.status}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const latest: UpdateMetadata = await res.json();
 
@@ -119,8 +123,12 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       const current = await AutoUpdate.getAppInfo();
       setCurrentVersionInfo(current);
 
-      // Validate metadata versionCode & compare
+      console.log(`[Updater] Installed versionCode: ${current.versionCode}`);
+      console.log(`[Updater] Latest versionCode: ${latest.versionCode}`);
+
+      // Validate metadata versionCode & compare (numeric, not lexicographic)
       if (latest && typeof latest.versionCode === 'number' && latest.versionCode > current.versionCode) {
+        console.log('[Updater] UPDATE AVAILABLE');
         setUpdateInfo(latest);
 
         // Determine if mandatory
@@ -131,9 +139,11 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
 
         // Record successful update check time
         await Preferences.set({ key: 'last_update_check_time', value: now.toString() });
+      } else {
+        console.log('[Updater] App is up to date.');
       }
     } catch (err) {
-      console.error('AutoUpdate check failed:', err);
+      console.error('[Updater] Update check failed:', err);
       // Fail silently without blocking the user
     } finally {
       setIsChecking(false);
