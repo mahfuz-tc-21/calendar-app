@@ -36,6 +36,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
           NEXT_PUBLIC_HOSTED_URL: ${{ secrets.NEXT_PUBLIC_HOSTED_URL || 'https://placeholder.vercel.app' }}
+          NEXT_PUBLIC_UPDATE_MANIFEST_URL: ${{ secrets.NEXT_PUBLIC_UPDATE_MANIFEST_URL || 'https://github.com/mahfuz-tc-21/calendar-app/releases/latest/download/latest.json' }}
 
       - name: Set up Java JDK 21
         uses: actions/setup-java@v4
