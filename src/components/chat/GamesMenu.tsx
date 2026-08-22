@@ -3,6 +3,11 @@
 import React, { useState } from 'react'
 import { X, Gamepad2, ArrowRight } from 'lucide-react'
 import { getApiUrl, getAuthHeaders } from '@/utils/api'
+import dynamic from 'next/dynamic'
+
+const TwoZeroFourEight = dynamic(() => import('./games/TwoZeroFourEight'), { ssr: false })
+const GuessTheNumber = dynamic(() => import('./games/GuessTheNumber'), { ssr: false })
+const MemoryCard = dynamic(() => import('./games/MemoryCard'), { ssr: false })
 
 interface GamesMenuProps {
   conversationId: string
@@ -32,6 +37,7 @@ const EMOJI_GUESS_CURATED = [
 
 export default function GamesMenu({ conversationId, opponentId, onClose }: GamesMenuProps) {
   const [loading] = useState<string | null>(null)
+  const [activeOfflineGame, setActiveOfflineGame] = useState<'2048' | 'guessthenumber' | 'memorycard' | null>(null)
   
   // Game config overlays
   const [selectedGameType, setSelectedGameType] = useState<string | null>(null)
@@ -124,6 +130,70 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
           {!selectedGameType ? (
             <div className="grid grid-cols-1 gap-3.5">
+              {/* Connect Four */}
+              <button
+                disabled={!!loading}
+                onClick={() => handleCreateGame('connectfour')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl animate-pulse">🔴</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Connect Four</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Realtime two-player board match</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* Dots & Boxes */}
+              <button
+                disabled={!!loading}
+                onClick={() => handleCreateGame('dotsandboxes')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">📦</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Dots & Boxes</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Realtime line connection match</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* Higher or Lower */}
+              <button
+                disabled={!!loading}
+                onClick={() => handleCreateGame('higherlower')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🔢</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Higher or Lower</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Predict the next card value</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* Reaction Battle */}
+              <button
+                disabled={!!loading}
+                onClick={() => handleCreateGame('reactionbattle')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">⚡</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Reaction Battle</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Fast-paced reaction tap war</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
               {/* Tic-Tac-Toe */}
               <button
                 disabled={!!loading}
@@ -131,7 +201,7 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
                 className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
               >
                 <div className="flex items-center gap-4">
-                  <span className="text-3xl animate-pulse">🎯</span>
+                  <span className="text-3xl">🎯</span>
                   <div>
                     <h3 className="font-semibold text-foreground text-sm">Tic-Tac-Toe</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">Realtime 3x3 grid battle</p>
@@ -172,37 +242,7 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
                 <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
               </button>
 
-              {/* Would You Rather */}
-              <button
-                disabled={!!loading}
-                onClick={() => setSelectedGameType('wouldyourather')}
-                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">🗳️</span>
-                  <div>
-                    <h3 className="font-semibold text-foreground text-sm">Would You Rather</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Compare your choice of options</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
-              </button>
 
-              {/* Battleship */}
-              <button
-                disabled={!!loading}
-                onClick={() => handleCreateGame('battleship')}
-                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">🟦</span>
-                  <div>
-                    <h3 className="font-semibold text-foreground text-sm">Battleship</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Strategize and sink their fleet</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
-              </button>
 
               {/* Word Guess */}
               <button
@@ -215,6 +255,54 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
                   <div>
                     <h3 className="font-semibold text-foreground text-sm">Word Guess</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">Set a secret word challenge</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* 2048 Game (Offline) */}
+              <button
+                disabled={!!loading}
+                onClick={() => setActiveOfflineGame('2048')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🔢</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">2048 Game</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Single-player offline tile slider</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* Guess the Number (Offline) */}
+              <button
+                disabled={!!loading}
+                onClick={() => setActiveOfflineGame('guessthenumber')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🎲</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Guess the Number</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Single-player offline guessing challenge</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              {/* Memory Match (Offline) */}
+              <button
+                disabled={!!loading}
+                onClick={() => setActiveOfflineGame('memorycard')}
+                className="w-full text-left p-4 rounded-2xl border border-border bg-card hover:border-blue-500/35 hover:bg-blue-500/5 flex items-center justify-between group transition-all duration-200 cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🎴</span>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">Memory Card Match</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Single-player offline pair matching</p>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary dark:group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
@@ -349,6 +437,17 @@ export default function GamesMenu({ conversationId, opponentId, onClose }: Games
           )}
         </div>
       </div>
+
+      {/* Offline Single Player Overlays */}
+      {activeOfflineGame === '2048' && (
+        <TwoZeroFourEight onClose={() => setActiveOfflineGame(null)} />
+      )}
+      {activeOfflineGame === 'guessthenumber' && (
+        <GuessTheNumber onClose={() => setActiveOfflineGame(null)} />
+      )}
+      {activeOfflineGame === 'memorycard' && (
+        <MemoryCard onClose={() => setActiveOfflineGame(null)} />
+      )}
     </div>
   )
 }

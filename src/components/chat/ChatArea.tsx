@@ -18,8 +18,10 @@ const GifPicker = dynamic(() => import('./GifPicker'), { ssr: false })
 const StickerPicker = dynamic(() => import('./StickerPicker'), { ssr: false })
 const MessageMenu = dynamic(() => import('./MessageMenu'), { ssr: false })
 const ProfileModal = dynamic(() => import('../profile/ProfileModal'), { ssr: false })
+const MediaGallery = dynamic(() => import('./MediaGallery'), { ssr: false })
 import GameCard from './GameCard'
 import GamesMenu from './GamesMenu'
+import ChatListAvatar from './ChatListAvatar'
 import { Clipboard } from '@capacitor/clipboard'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
@@ -139,6 +141,8 @@ export default function ChatArea() {
   const [isGamesMenuOpen, setIsGamesMenuOpen] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
   const [showAddPartnerModal, setShowAddPartnerModal] = useState(false)
+  const [showMediaGallery, setShowMediaGallery] = useState(false)
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false)
 
   // Context Bottom Sheet Menu State
   const [selectedMenuMessage, setSelectedMenuMessage] = useState<Message | null>(null)
@@ -1073,11 +1077,18 @@ export default function ChatArea() {
 
           {activeConversation ? (
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
-                {(partnerProfile || activeConversation.partner).avatar_url ? (
-                  <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
-                ) : (
-                  ((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)
+              <div className="relative shrink-0 select-none">
+                <div className="w-9 h-9 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
+                  {(partnerProfile || activeConversation.partner).avatar_url ? (
+                    <img src={(partnerProfile || activeConversation.partner).avatar_url} alt="Partner" className="w-full h-full object-cover" />
+                  ) : (
+                    ((partnerProfile || activeConversation.partner).display_name || (partnerProfile || activeConversation.partner).username).substring(0, 2)
+                  )}
+                </div>
+                {profile?.active_status_enabled !== false && 
+                  (partnerProfile || activeConversation.partner).active_status_enabled !== false && 
+                  isPartnerOnline && (
+                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-card animate-in zoom-in duration-150" />
                 )}
               </div>
               <div className="flex flex-col">
@@ -1102,28 +1113,57 @@ export default function ChatArea() {
 
         <div className="flex items-center gap-1.5">
           {activeConversation && (
-            <button
-              type="button"
-              onClick={() => setIsGamesMenuOpen(true)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-              title="Games"
-            >
-              <Gamepad2 className="w-5 h-5 text-muted-foreground" />
-            </button>
-          )}
-          {activeConversation && (
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('Are you sure you want to delete this full conversation? This will permanently delete all messages and history.')) {
-                  deleteConversation(activeConversation.id)
-                }
-              }}
-              title="Delete Full Conversation"
-              className="p-2.5 rounded-xl border border-border bg-card hover:bg-red-500/10 text-muted-foreground hover:text-red-650 dark:hover:text-red-400 transition-all cursor-pointer shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <Trash2 className="w-4.5 h-4.5" />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+                title="More Options"
+              >
+                <MoreVertical className="w-5 h-5 text-muted-foreground" />
+              </button>
+              
+              {showHeaderMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowHeaderMenu(false)} />
+                  <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-xl py-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false)
+                        setIsGamesMenuOpen(true)
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-secondary/60 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Gamepad2 className="w-4 h-4 text-muted-foreground" />
+                      Play Games
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false)
+                        setShowMediaGallery(true)
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-secondary/60 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                      Media Gallery
+                    </button>
+                    <div className="border-t border-border my-1" />
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false)
+                        if (confirm('Are you sure you want to delete this full conversation? This will permanently delete all messages and history.')) {
+                          deleteConversation(activeConversation.id)
+                        }
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-red-500 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                      Delete Chat
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
           {!activeConversation && (
             <button
@@ -1190,13 +1230,12 @@ export default function ChatArea() {
                     onClick={() => setActiveConversation(conv)}
                     className="w-full flex items-center gap-3 p-4 hover:bg-secondary/40 text-left transition-colors cursor-pointer"
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 text-primary dark:text-blue-400 font-bold flex items-center justify-center shrink-0 uppercase overflow-hidden">
-                      {conv.partner.avatar_url ? (
-                        <img src={conv.partner.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        (conv.partner.display_name || conv.partner.username).substring(0, 2)
-                      )}
-                    </div>
+                    <ChatListAvatar
+                      conversationId={conv.id}
+                      partner={conv.partner}
+                      currentUserId={user?.id || ''}
+                      currentUserActiveStatusEnabled={profile?.active_status_enabled !== false}
+                    />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-sm text-foreground truncate">
                         {conv.partner.display_name || conv.partner.username}
@@ -1830,6 +1869,14 @@ export default function ChatArea() {
       {showProfileModal && (
         <ProfileModal
           onClose={() => setShowProfileModal(false)}
+        />
+      )}
+
+      {/* 6.0 MEDIA GALLERY MODAL */}
+      {showMediaGallery && activeConversation && (
+        <MediaGallery
+          conversationId={activeConversation.id}
+          onClose={() => setShowMediaGallery(false)}
         />
       )}
 

@@ -31,6 +31,22 @@ const WordGuessBoard = dynamic(() => import('./games/WordGuessBoard'), {
   loading: () => <div className="p-4 text-center text-xs text-gray-500">Loading Word Guess...</div>,
   ssr: false
 })
+const ConnectFourBoard = dynamic(() => import('./games/ConnectFourBoard'), {
+  loading: () => <div className="p-4 text-center text-xs text-gray-500">Loading Connect Four...</div>,
+  ssr: false
+})
+const DotsAndBoxesBoard = dynamic(() => import('./games/DotsAndBoxesBoard'), {
+  loading: () => <div className="p-4 text-center text-xs text-gray-500">Loading Dots & Boxes...</div>,
+  ssr: false
+})
+const HigherLowerBoard = dynamic(() => import('./games/HigherLowerBoard'), {
+  loading: () => <div className="p-4 text-center text-xs text-gray-500">Loading Higher or Lower...</div>,
+  ssr: false
+})
+const ReactionBattleBoard = dynamic(() => import('./games/ReactionBattleBoard'), {
+  loading: () => <div className="p-4 text-center text-xs text-gray-500">Loading Reaction Battle...</div>,
+  ssr: false
+})
 
 interface GameCardProps {
   message: {
@@ -164,6 +180,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
 
   const getGameEmoji = () => {
     switch (game.game_type) {
+      case 'connectfour': return '🔴'
+      case 'dotsandboxes': return '📦'
+      case 'higherlower': return '🔢'
+      case 'reactionbattle': return '⚡'
       case 'tictactoe': return '🎯'
       case 'rps': return '✊'
       case 'emojiguess': return '🤔'
@@ -176,6 +196,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
 
   const getGameName = () => {
     switch (game.game_type) {
+      case 'connectfour': return 'Connect Four'
+      case 'dotsandboxes': return 'Dots & Boxes'
+      case 'higherlower': return 'Higher or Lower'
+      case 'reactionbattle': return 'Reaction Battle'
       case 'tictactoe': return 'Tic-Tac-Toe'
       case 'rps': return 'Rock Paper Scissors'
       case 'emojiguess': return 'Emoji Guess'
@@ -257,6 +281,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
       {/* Active gameplay screen */}
       {game.status === 'active' && (
         <div className="space-y-2">
+          {game.game_type === 'connectfour' && <ConnectFourBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'dotsandboxes' && <DotsAndBoxesBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'higherlower' && <HigherLowerBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
+          {game.game_type === 'reactionbattle' && <ReactionBattleBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
           {game.game_type === 'tictactoe' && <TicTacToeBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
           {game.game_type === 'rps' && <RockPaperScissorsBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
           {game.game_type === 'emojiguess' && <EmojiGuessBoard game={game} currentUserId={currentUserId} setActiveGames={setActiveGames} />}
@@ -286,6 +314,10 @@ export default function GameCard({ message, isOwn, activeGames, setActiveGames, 
       {game.status === 'completed' && (
         <div className="space-y-4">
           {/* Render static completed boards or reveals */}
+          {game.game_type === 'connectfour' && <ConnectFourBoard game={game} currentUserId={currentUserId} />}
+          {game.game_type === 'dotsandboxes' && <DotsAndBoxesBoard game={game} currentUserId={currentUserId} />}
+          {game.game_type === 'higherlower' && <HigherLowerBoard game={game} currentUserId={currentUserId} />}
+          {game.game_type === 'reactionbattle' && <ReactionBattleBoard game={game} currentUserId={currentUserId} />}
           {game.game_type === 'tictactoe' && <TicTacToeBoard game={game} currentUserId={currentUserId} />}
           {game.game_type === 'rps' && <RockPaperScissorsBoard game={game} currentUserId={currentUserId} />}
           {game.game_type === 'emojiguess' && <EmojiGuessBoard game={game} currentUserId={currentUserId} />}

@@ -105,6 +105,57 @@ export async function POST(request: Request) {
       initialPrivateState = {
         secretWord: cleanedWord,
       }
+    } else if (gameType === 'connectfour') {
+      initialState = {
+        board: Array(6).fill(null).map(() => Array(7).fill(null)),
+        turn: user.id,
+        red_player_id: user.id,
+        yellow_player_id: opponentId,
+      }
+    } else if (gameType === 'dotsandboxes') {
+      initialState = {
+        hLines: Array(5).fill(null).map(() => Array(4).fill(false)),
+        vLines: Array(4).fill(null).map(() => Array(5).fill(false)),
+        boxes: Array(4).fill(null).map(() => Array(4).fill(null)),
+        turn: user.id,
+        player_one_id: user.id,
+        player_two_id: opponentId,
+        scores: {
+          [user.id]: 0,
+          [opponentId]: 0,
+        },
+      }
+    } else if (gameType === 'higherlower') {
+      const randomNumbers = Array(6).fill(null).map(() => Math.floor(Math.random() * 100) + 1)
+      initialState = {
+        numbers: randomNumbers,
+        round: 0,
+        predictions: {
+          [user.id]: null,
+          [opponentId]: null,
+        },
+        scores: {
+          [user.id]: 0,
+          [opponentId]: 0,
+        },
+      }
+    } else if (gameType === 'reactionbattle') {
+      initialState = {
+        round: 1,
+        ready: {
+          [user.id]: false,
+          [opponentId]: false,
+        },
+        targetTime: null,
+        reactions: {
+          [user.id]: null,
+          [opponentId]: null,
+        },
+        scores: {
+          [user.id]: 0,
+          [opponentId]: 0,
+        },
+      }
     }
 
     // Insert game
@@ -164,6 +215,14 @@ export async function POST(request: Request) {
                 ? 'Would You Rather'
                 : gameType === 'battleship'
                 ? 'Battleship'
+                : gameType === 'connectfour'
+                ? 'Connect Four'
+                : gameType === 'dotsandboxes'
+                ? 'Dots & Boxes'
+                : gameType === 'higherlower'
+                ? 'Higher or Lower'
+                : gameType === 'reactionbattle'
+                ? 'Reaction Battle'
                 : 'Word Guess'
             }`
           : `Invited you to play ${
@@ -177,6 +236,14 @@ export async function POST(request: Request) {
                 ? 'Would You Rather'
                 : gameType === 'battleship'
                 ? 'Battleship'
+                : gameType === 'connectfour'
+                ? 'Connect Four'
+                : gameType === 'dotsandboxes'
+                ? 'Dots & Boxes'
+                : gameType === 'higherlower'
+                ? 'Higher or Lower'
+                : gameType === 'reactionbattle'
+                ? 'Reaction Battle'
                 : 'Word Guess'
             }`,
       })

@@ -52,7 +52,7 @@ export interface Reaction {
 export interface Game {
   id: string
   conversation_id: string
-  game_type: 'tictactoe' | 'rps' | 'emojiguess' | 'wouldyourather' | 'battleship' | 'wordguess'
+  game_type: 'tictactoe' | 'rps' | 'emojiguess' | 'wouldyourather' | 'battleship' | 'wordguess' | 'connectfour' | 'dotsandboxes' | 'higherlower' | 'reactionbattle'
   created_by: string
   opponent_id: string
   status: 'pending' | 'active' | 'completed' | 'cancelled'
