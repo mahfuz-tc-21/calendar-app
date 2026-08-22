@@ -64,6 +64,14 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
   const [waitingForPermission, setWaitingForPermission] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
 
+  // Debug overlay — visible on-screen status for real device testing
+  const [debugLog, setDebugLog] = useState<string[]>(['[UPDATER] Mounted']);
+  const appendDebug = (msg: string) => {
+    console.log(`[CALENDAR_UPDATER] ${msg}`);
+    setDebugLog(prev => [...prev.slice(-6), msg]); // keep last 7 lines
+  };
+  const showDebugOverlay = process.env.NEXT_PUBLIC_DEBUG_UPDATER === 'true';
+
   const downloadListenerRef = useRef<any>(null);
 
   const getManifestUrl = (): string | null => {
@@ -81,19 +89,23 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
 
   const checkForUpdate = async (force = false) => {
     // Only run on native Android
-    if (Capacitor.getPlatform() !== 'android') return;
+    const platform = Capacitor.getPlatform();
+    appendDebug(`Platform: ${platform}`);
+    if (platform !== 'android') return;
 
     // Check network connectivity first
     const netStatus = await Network.getStatus();
+    appendDebug(`Network: ${netStatus.connected ? 'online' : 'offline'}`);
     if (!netStatus.connected) return;
 
     const manifestUrl = getManifestUrl();
     if (!manifestUrl) {
-      console.warn('[Updater] Update manifest URL is not configured.');
+      appendDebug('ERROR: No manifest URL');
+      console.warn('[CALENDAR_UPDATER] Update manifest URL is not configured.');
       return;
     }
 
-    console.log(`[Updater] Manifest URL: ${manifestUrl}`);
+    appendDebug(`URL: ${manifestUrl.replace('https://', '')}`);
 
     // Cache throttle check: 12 hours
     const now = Date.now();
@@ -102,20 +114,24 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       try {
         const { value: lastCheck } = await Preferences.get({ key: 'last_update_check_time' });
         if (lastCheck && now - parseInt(lastCheck, 10) < THROTTLE_MS) {
-          console.log('[Updater] Skipping check — last checked less than 12 hours ago.');
-          return; // Skip checking to save bandwidth
+          const hoursAgo = ((now - parseInt(lastCheck, 10)) / 3600000).toFixed(1);
+          appendDebug(`Throttled (${hoursAgo}h ago)`);
+          console.log('[CALENDAR_UPDATER] Skipping — checked ' + hoursAgo + 'h ago');
+          return;
         }
       } catch (e) {
         // Silently continue if preferences fail
       }
     }
 
+    appendDebug('Checking...');
     setIsChecking(true);
 
     try {
       // Fetch latest metadata
       const res = await fetch(manifestUrl, { cache: 'no-store' });
-      console.log(`[Updater] HTTP status: ${res.status}`);
+      appendDebug(`HTTP ${res.status}`);
+      console.log(`[CALENDAR_UPDATER] HTTP status: ${res.status}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const latest: UpdateMetadata = await res.json();
 
@@ -123,12 +139,15 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       const current = await AutoUpdate.getAppInfo();
       setCurrentVersionInfo(current);
 
-      console.log(`[Updater] Installed versionCode: ${current.versionCode}`);
-      console.log(`[Updater] Latest versionCode: ${latest.versionCode}`);
+      appendDebug(`Installed: ${current.versionCode}`);
+      appendDebug(`Latest: ${latest.versionCode}`);
+      console.log(`[CALENDAR_UPDATER] Installed versionCode: ${current.versionCode}`);
+      console.log(`[CALENDAR_UPDATER] Latest versionCode: ${latest.versionCode}`);
 
       // Validate metadata versionCode & compare (numeric, not lexicographic)
       if (latest && typeof latest.versionCode === 'number' && latest.versionCode > current.versionCode) {
-        console.log('[Updater] UPDATE AVAILABLE');
+        appendDebug(`UPDATE AVAILABLE!`);
+        console.log('[CALENDAR_UPDATER] UPDATE AVAILABLE');
         setUpdateInfo(latest);
 
         // Determine if mandatory
@@ -140,10 +159,12 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
         // Record successful update check time
         await Preferences.set({ key: 'last_update_check_time', value: now.toString() });
       } else {
-        console.log('[Updater] App is up to date.');
+        appendDebug('Up to date');
+        console.log('[CALENDAR_UPDATER] App is up to date.');
       }
-    } catch (err) {
-      console.error('[Updater] Update check failed:', err);
+    } catch (err: any) {
+      appendDebug(`ERROR: ${err?.message || err}`);
+      console.error('[CALENDAR_UPDATER] Update check failed:', err);
       // Fail silently without blocking the user
     } finally {
       setIsChecking(false);
@@ -255,6 +276,24 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
   return (
     <AutoUpdateContext.Provider value={{ checkForUpdate, isChecking }}>
       {children}
+
+      {/* ── Debug Overlay (only when NEXT_PUBLIC_DEBUG_UPDATER=true) ── */}
+      {showDebugOverlay && (
+        <div style={{
+          position: 'fixed', bottom: 60, left: 8, right: 8, zIndex: 9999,
+          background: 'rgba(0,0,0,0.82)', borderRadius: 10, padding: '8px 12px',
+          pointerEvents: 'none',
+        }}>
+          <div style={{ color: '#4ade80', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+            🔧 CALENDAR_UPDATER
+          </div>
+          {debugLog.map((line, i) => (
+            <div key={i} style={{ color: line.includes('ERROR') ? '#f87171' : line.includes('UPDATE') ? '#facc15' : '#e2e8f0', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5 }}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modern Overlay & Modal Dialog */}
       {showModal && updateInfo && (
