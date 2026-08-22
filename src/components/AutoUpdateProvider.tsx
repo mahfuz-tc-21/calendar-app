@@ -65,12 +65,12 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
 
   // Debug overlay — visible on-screen status for real device testing
-  const [debugLog, setDebugLog] = useState<string[]>(['[UPDATER] Mounted']);
+  const [debugLog, setDebugLog] = useState<string[]>(['UPDATER STATUS: MOUNTED']);
   const appendDebug = (msg: string) => {
     console.log(`[CALENDAR_UPDATER] ${msg}`);
-    setDebugLog(prev => [...prev.slice(-6), msg]); // keep last 7 lines
+    setDebugLog(prev => [...prev.slice(-9), msg]); // keep last 10 lines
   };
-  const showDebugOverlay = process.env.NEXT_PUBLIC_DEBUG_UPDATER === 'true';
+  const showDebugOverlay = true; // Always show during debugging
 
   const downloadListenerRef = useRef<any>(null);
 
@@ -88,14 +88,16 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
   };
 
   const checkForUpdate = async (force = false) => {
-    // Only run on native Android
+    appendDebug('CHECKING');
+
+    // Only run on native Android (but log platform)
     const platform = Capacitor.getPlatform();
-    appendDebug(`Platform: ${platform}`);
+    appendDebug(`PLATFORM: ${platform}`);
     if (platform !== 'android') return;
 
     // Check network connectivity first
     const netStatus = await Network.getStatus();
-    appendDebug(`Network: ${netStatus.connected ? 'online' : 'offline'}`);
+    appendDebug(`NETWORK: ${netStatus.connected ? 'online' : 'offline'}`);
     if (!netStatus.connected) return;
 
     const manifestUrl = getManifestUrl();
@@ -105,7 +107,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    appendDebug(`URL: ${manifestUrl.replace('https://', '')}`);
+    appendDebug(`MANIFEST: ${manifestUrl.replace('https://', '')}`);
 
     // Cache throttle check: 12 hours
     const now = Date.now();
@@ -124,29 +126,29 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
       }
     }
 
-    appendDebug('Checking...');
     setIsChecking(true);
 
     try {
       // Fetch latest metadata
       const res = await fetch(manifestUrl, { cache: 'no-store' });
-      appendDebug(`HTTP ${res.status}`);
+      appendDebug(`HTTP: ${res.status}`);
       console.log(`[CALENDAR_UPDATER] HTTP status: ${res.status}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const latest: UpdateMetadata = await res.json();
 
+      appendDebug('GET APP INFO');
       // Retrieve current app information
       const current = await AutoUpdate.getAppInfo();
       setCurrentVersionInfo(current);
 
-      appendDebug(`Installed: ${current.versionCode}`);
-      appendDebug(`Latest: ${latest.versionCode}`);
+      appendDebug(`INSTALLED: ${current.versionCode}`);
+      appendDebug(`LATEST: ${latest.versionCode}`);
       console.log(`[CALENDAR_UPDATER] Installed versionCode: ${current.versionCode}`);
       console.log(`[CALENDAR_UPDATER] Latest versionCode: ${latest.versionCode}`);
 
       // Validate metadata versionCode & compare (numeric, not lexicographic)
       if (latest && typeof latest.versionCode === 'number' && latest.versionCode > current.versionCode) {
-        appendDebug(`UPDATE AVAILABLE!`);
+        appendDebug(`UPDATE AVAILABLE`);
         console.log('[CALENDAR_UPDATER] UPDATE AVAILABLE');
         setUpdateInfo(latest);
 
@@ -277,15 +279,15 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
     <AutoUpdateContext.Provider value={{ checkForUpdate, isChecking }}>
       {children}
 
-      {/* ── Debug Overlay (only when NEXT_PUBLIC_DEBUG_UPDATER=true) ── */}
+      {/* ── Debug Overlay (unconditional for testing) ── */}
       {showDebugOverlay && (
         <div style={{
           position: 'fixed', bottom: 60, left: 8, right: 8, zIndex: 9999,
-          background: 'rgba(0,0,0,0.82)', borderRadius: 10, padding: '8px 12px',
-          pointerEvents: 'none',
+          background: 'rgba(0,0,0,0.85)', borderRadius: 12, padding: '12px',
+          border: '2px solid #ef4444', pointerEvents: 'none',
         }}>
-          <div style={{ color: '#4ade80', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
-            🔧 CALENDAR_UPDATER
+          <div style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: 13, fontWeight: 800, marginBottom: 6 }}>
+            🚨 CALENDAR UPDATER DEBUG
           </div>
           {debugLog.map((line, i) => (
             <div key={i} style={{ color: line.includes('ERROR') ? '#f87171' : line.includes('UPDATE') ? '#facc15' : '#e2e8f0', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5 }}>
