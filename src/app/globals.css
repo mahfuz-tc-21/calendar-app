@@ -136,13 +136,137 @@ html {
   --ring: #3b82f6;
 }
 
-/* Custom Chat Themes */
-.theme-midnight {
-  --background: #060b18 !important;
-  --card: #0b1120 !important;
-  --secondary: #131b2e !important;
-  --border: #1e2942 !important;
-  --primary: #2563eb !important;
-  --primary-foreground: #ffffff !important;
-  --foreground: #f3f4f6 !important;
+/* Custom Chat Themes — override both legacy tokens AND Tailwind v4 --color-* tokens */
+.theme-purple {
+  --background: #0b0714;
+  --card: #120c22;
+  --secondary: #1d1435;
+  --border: #2b1f4c;
+  --input: #2b1f4c;
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --foreground: #f5f3ff;
+  --muted: #170f28;
+  --muted-foreground: #a78bfa;
+  /* Tailwind v4 resolved tokens */
+  --color-background: #0b0714;
+  --color-card: #120c22;
+  --color-secondary: #1d1435;
+  --color-border: #2b1f4c;
+  --color-primary: #8b5cf6;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #f5f3ff;
+  --color-muted: #170f28;
+  --color-muted-foreground: #a78bfa;
 }
+
+.theme-ocean {
+  --background: #030712;
+  --card: #081123;
+  --secondary: #0e1f3a;
+  --border: #162f55;
+  --input: #162f55;
+  --primary: #0ea5e9;
+  --primary-foreground: #ffffff;
+  --foreground: #f0f9ff;
+  --muted: #060f20;
+  --muted-foreground: #38bdf8;
+  --color-background: #030712;
+  --color-card: #081123;
+  --color-secondary: #0e1f3a;
+  --color-border: #162f55;
+  --color-primary: #0ea5e9;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #f0f9ff;
+  --color-muted: #060f20;
+  --color-muted-foreground: #38bdf8;
+}
+
+.theme-emerald {
+  --background: #020806;
+  --card: #05130e;
+  --secondary: #092219;
+  --border: #103527;
+  --input: #103527;
+  --primary: #10b981;
+  --primary-foreground: #ffffff;
+  --foreground: #ecfdf5;
+  --muted: #040e09;
+  --muted-foreground: #34d399;
+  --color-background: #020806;
+  --color-card: #05130e;
+  --color-secondary: #092219;
+  --color-border: #103527;
+  --color-primary: #10b981;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #ecfdf5;
+  --color-muted: #040e09;
+  --color-muted-foreground: #34d399;
+}
+
+.theme-sunset {
+  --background: #0c0402;
+  --card: #160a05;
+  --secondary: #24130b;
+  --border: #361d11;
+  --input: #361d11;
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --foreground: #fff7ed;
+  --muted: #100603;
+  --muted-foreground: #fb923c;
+  --color-background: #0c0402;
+  --color-card: #160a05;
+  --color-secondary: #24130b;
+  --color-border: #361d11;
+  --color-primary: #f97316;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #fff7ed;
+  --color-muted: #100603;
+  --color-muted-foreground: #fb923c;
+}
+
+.theme-rose {
+  --background: #0d0205;
+  --card: #18060c;
+  --secondary: #280c16;
+  --border: #3c1221;
+  --input: #3c1221;
+  --primary: #ec4899;
+  --primary-foreground: #ffffff;
+  --foreground: #fff1f2;
+  --muted: #120408;
+  --muted-foreground: #f472b6;
+  --color-background: #0d0205;
+  --color-card: #18060c;
+  --color-secondary: #280c16;
+  --color-border: #3c1221;
+  --color-primary: #ec4899;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #fff1f2;
+  --color-muted: #120408;
+  --color-muted-foreground: #f472b6;
+}
+
+.theme-cyan {
+  --background: #02080a;
+  --card: #04151a;
+  --secondary: #07242c;
+  --border: #0d3641;
+  --input: #0d3641;
+  --primary: #06b6d4;
+  --primary-foreground: #ffffff;
+  --foreground: #ecfeff;
+  --muted: #030c0f;
+  --muted-foreground: #22d3ee;
+  --color-background: #02080a;
+  --color-card: #04151a;
+  --color-secondary: #07242c;
+  --color-border: #0d3641;
+  --color-primary: #06b6d4;
+  --color-primary-foreground: #ffffff;
+  --color-foreground: #ecfeff;
+  --color-muted: #030c0f;
+  --color-muted-foreground: #22d3ee;
+}
+

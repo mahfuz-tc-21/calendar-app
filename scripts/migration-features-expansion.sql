@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_themes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
-  theme TEXT NOT NULL CHECK (theme IN ('default', 'midnight')),
+  theme TEXT NOT NULL CHECK (theme IN ('default', 'purple', 'ocean', 'emerald', 'sunset', 'rose', 'cyan')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE(user_id, conversation_id)
@@ -102,3 +102,7 @@ CREATE POLICY "Allow all actions on own conversation themes if conversation memb
   TO authenticated
   USING (user_id = auth.uid() AND public.is_conversation_member(conversation_id))
   WITH CHECK (user_id = auth.uid() AND public.is_conversation_member(conversation_id));
+
+-- 8. Alter Constraint for Premium Themes
+ALTER TABLE public.conversation_themes DROP CONSTRAINT IF EXISTS conversation_themes_theme_check;
+ALTER TABLE public.conversation_themes ADD CONSTRAINT conversation_themes_theme_check CHECK (theme IN ('default', 'purple', 'ocean', 'emerald', 'sunset', 'rose', 'cyan'));

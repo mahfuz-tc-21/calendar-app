@@ -156,10 +156,10 @@ export default function ChatArea() {
     fetchTheme()
   }, [activeConversation, user, supabase])
 
-  const toggleTheme = async () => {
+  const selectTheme = async (nextTheme: string) => {
     if (!activeConversation || !user) return
-    const nextTheme = chatTheme === 'midnight' ? 'default' : 'midnight'
     setChatTheme(nextTheme)
+    setShowThemeModal(false)
     try {
       await supabase
         .from('conversation_themes')
@@ -173,6 +173,21 @@ export default function ChatArea() {
       console.error(e)
     }
   }
+
+  // Apply theme class to document.body so ALL Tailwind v4 --color-* tokens cascade
+  const CHAT_THEME_CLASSES = ['theme-purple','theme-ocean','theme-emerald','theme-sunset','theme-rose','theme-cyan']
+  useEffect(() => {
+    // Remove all existing chat theme classes
+    CHAT_THEME_CLASSES.forEach(cls => document.body.classList.remove(cls))
+    // Apply selected theme (if not default)
+    if (chatTheme !== 'default') {
+      document.body.classList.add(`theme-${chatTheme}`)
+    }
+    // Cleanup when conversation closes or component unmounts
+    return () => {
+      CHAT_THEME_CLASSES.forEach(cls => document.body.classList.remove(cls))
+    }
+  }, [chatTheme])
 
   // Input states
   const [inputText, setInputText] = useState('')
@@ -189,6 +204,7 @@ export default function ChatArea() {
   const [showAddPartnerModal, setShowAddPartnerModal] = useState(false)
   const [showMediaGallery, setShowMediaGallery] = useState(false)
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+  const [showThemeModal, setShowThemeModal] = useState(false)
 
   // Context Bottom Sheet Menu State
   const [selectedMenuMessage, setSelectedMenuMessage] = useState<Message | null>(null)
@@ -1101,7 +1117,7 @@ export default function ChatArea() {
 
   return (
     <div className={`flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden ${
-      activeConversation && chatTheme === 'midnight' ? 'theme-midnight' : ''
+      activeConversation && chatTheme !== 'default' ? `theme-${chatTheme}` : ''
     }`}>
       
       {/* 1. HEADER */}
@@ -1198,12 +1214,12 @@ export default function ChatArea() {
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false)
-                        toggleTheme()
+                        setShowThemeModal(true)
                       }}
                       className="w-full px-4 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-secondary/60 flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <Sparkles className="w-4 h-4 text-muted-foreground" />
-                      {chatTheme === 'midnight' ? 'Theme: Midnight' : 'Theme: Default'}
+                      Chat Themes
                     </button>
                     <div className="border-t border-border my-1" />
                     <button
@@ -2061,6 +2077,80 @@ export default function ChatArea() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+      {/* 8. PREMIUM THEME SELECTOR MODAL */}
+      {showThemeModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200"
+          onClick={() => setShowThemeModal(false)}
+        >
+          <div 
+            className="w-full max-w-sm bg-card border border-border rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                🎨 Chat Themes
+              </h3>
+              <button
+                onClick={() => setShowThemeModal(false)}
+                className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Themes Grid List */}
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {[
+                { id: 'default', name: 'Default', desc: 'System light/dark colors', preview: 'bg-primary border-border', dot: 'bg-secondary' },
+                { id: 'purple', name: '💜 Purple', desc: 'Vibrant majestic violet hue', preview: 'bg-violet-500 border-[#2b1f4c]', dot: 'bg-[#0b0714]' },
+                { id: 'ocean', name: '🔵 Ocean', desc: 'Deep Atlantic ocean vibe', preview: 'bg-sky-500 border-[#162f55]', dot: 'bg-[#030712]' },
+                { id: 'emerald', name: '🟢 Emerald', desc: 'Fresh green leaves aesthetics', preview: 'bg-emerald-500 border-[#103527]', dot: 'bg-[#020806]' },
+                { id: 'sunset', name: '🟠 Sunset', desc: 'Warm glowing evening look', preview: 'bg-orange-500 border-[#361d11]', dot: 'bg-[#0c0402]' },
+                { id: 'rose', name: '🌸 Rose', desc: 'Luxury velvet rose pink look', preview: 'bg-rose-400 border-[#3c1221]', dot: 'bg-[#0d0205]' },
+                { id: 'cyan', name: '🔷 Cyan', desc: 'Futuristic cyberpunk cyan hue', preview: 'bg-cyan-400 border-[#0d3641]', dot: 'bg-[#02080a]' },
+              ].map((theme) => (
+                <button
+                  key={theme.id}
+                  onClick={() => selectTheme(theme.id)}
+                  className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between gap-4 transition-all cursor-pointer ${
+                    chatTheme === theme.id 
+                      ? 'border-primary bg-primary/5 shadow-xs font-bold scale-[1.01]' 
+                      : 'border-border bg-card hover:bg-secondary/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Color Preview Badge */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border shrink-0 ${theme.preview}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full ${theme.dot}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-foreground block truncate">{theme.name}</span>
+                      <span className="text-[10px] text-muted-foreground block truncate mt-0.5">{theme.desc}</span>
+                    </div>
+                  </div>
+                  {chatTheme === theme.id && (
+                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-extrabold shadow-sm shrink-0">
+                      ✓
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Cancel Footer */}
+            <div className="px-6 py-4 border-t border-border bg-secondary/30 flex justify-end">
+              <button
+                onClick={() => setShowThemeModal(false)}
+                className="px-4.5 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
