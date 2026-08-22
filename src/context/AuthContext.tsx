@@ -218,10 +218,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Request notification permissions (Capacitor & Web) on mount
+  // Request notification permissions and register tap handlers at mount time (no user dep).
+  // IMPORTANT: pushNotificationActionPerformed fires ONCE on cold-start from the launch
+  // Intent. It must be registered here — before auth completes — to avoid missing the event.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const cap = (window as any).Capacitor
+
+      // ── FCM: register tap handler at mount time (cold-start safe) ──────────────
+      if (cap && cap.isPluginAvailable('PushNotifications')) {
+        try {
+          const { PushNotifications } = require('@capacitor/push-notifications')
+          PushNotifications.addListener('pushNotificationActionPerformed', (_action: any) => {
+            // SECURITY: ignore all routing data in the notification payload.
+            // Always navigate to the main Calendar page only.
+            console.log('FCM notification tapped — navigating to Calendar (cold-start safe handler).')
+            window.location.href = '/calendar'
+          })
+        } catch (e) {
+          console.error('Failed to register FCM tap handler:', e)
+        }
+      }
+
+      // ── Local Notifications: permission + channel + tap handler ───────────────
       if (cap && cap.isPluginAvailable('LocalNotifications')) {
         try {
           const { LocalNotifications } = require('@capacitor/local-notifications')
@@ -238,20 +257,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             visibility: 1,
             sound: 'default',
             vibration: true,
-          }).catch((e: any) => console.error("Failed to create notification channel:", e))
+          }).catch((e: any) => console.error('Failed to create notification channel:', e))
 
-          // Add listener for local notification click actions (native redirection)
-          LocalNotifications.addListener('localNotificationActionPerformed', (action: any) => {
-            console.log("Capacitor local notification clicked, redirecting to calendar dashboard:", action)
+          // SECURITY: tap always goes to Calendar — never to chat/private/game.
+          LocalNotifications.addListener('localNotificationActionPerformed', (_action: any) => {
+            console.log('Local notification tapped — navigating to Calendar.')
             window.location.href = '/calendar'
           })
         } catch (e) {
-          console.error("Capacitor permission request failed:", e)
+          console.error('Capacitor local notification setup failed:', e)
         }
       } else if ('Notification' in window) {
         if (Notification.permission === 'default') {
           Notification.requestPermission().then((res) => {
-            console.log("Web Notification permission request response:", res)
+            console.log('Web Notification permission request response:', res)
           })
         }
       }
@@ -339,17 +358,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, supabase])
 
-  // Register push notifications and save device token to user profile
+  // Register push notifications FCM token — runs when user is authenticated.
+  // NOTE: pushNotificationActionPerformed tap handler is registered at mount time
+  // (above) to handle cold-start. Only token registration needs the user here.
   useEffect(() => {
     if (!user) return
 
-    const setupPushNotifications = async () => {
+    const setupPushToken = async () => {
       if (typeof window !== 'undefined') {
         const cap = (window as any).Capacitor
         if (cap && cap.isPluginAvailable('PushNotifications')) {
           try {
             const { PushNotifications } = require('@capacitor/push-notifications')
-            
+
             const permStatus = await PushNotifications.requestPermissions()
             if (permStatus.receive === 'granted') {
               await PushNotifications.register()
@@ -366,21 +387,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await PushNotifications.addListener('registrationError', (error: any) => {
               console.error('Push notification registration error:', error)
             })
-
-            await PushNotifications.addListener('pushNotificationActionPerformed', (action: any) => {
-              console.log('Push notification action tapped, redirecting to calendar for safety.')
-              if (typeof window !== 'undefined') {
-                window.location.href = '/calendar'
-              }
-            })
           } catch (e) {
-            console.error('Capacitor Push Notifications registration failed:', e)
+            console.error('Capacitor Push Notifications FCM token setup failed:', e)
           }
         }
       }
     }
 
-    setupPushNotifications()
+    setupPushToken()
   }, [user, supabase])
 
   return (
