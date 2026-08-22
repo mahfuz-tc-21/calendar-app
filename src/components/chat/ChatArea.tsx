@@ -59,7 +59,7 @@ function formatLastSeen(lastSeenStr: string | null | undefined) {
   }
 }
 
-export default function ChatArea() {
+export default function ChatArea({ onActiveChatChange }: { onActiveChatChange?: (active: boolean) => void }) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { lock } = usePrivateSpace()
@@ -100,6 +100,18 @@ export default function ChatArea() {
   )
 
   const supabase = createClient()
+
+  // Notify parent component about active conversation status
+  useEffect(() => {
+    if (onActiveChatChange) {
+      onActiveChatChange(!!activeConversation)
+    }
+    return () => {
+      if (onActiveChatChange) {
+        onActiveChatChange(false)
+      }
+    }
+  }, [activeConversation, onActiveChatChange])
 
   // Dynamic partner profile sync for fetching fresh last_seen values
   useEffect(() => {

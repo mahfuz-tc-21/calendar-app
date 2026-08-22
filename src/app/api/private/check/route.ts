@@ -19,14 +19,33 @@ function verifySessionToken(token: string, userId: string) {
   }
 }
 
+import fs from 'fs'
+
+function logDebug(message: string) {
+  try {
+    const logPath = 'd:/Mahfuz/Project/calendar app/debug.log'
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] [Check] ${message}\n`)
+  } catch (e) {
+    console.error('Failed to write debug log:', e)
+  }
+}
+
 export async function GET() {
   try {
+    logDebug('GET /api/private/check called')
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError) {
+      logDebug(`authError: ${authError.message}`)
+    }
 
     if (!user) {
+      logDebug('Unauthorized: No user found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    logDebug(`User authenticated: id=${user.id}, email=${user.email}`)
 
     const { data, error } = await supabase
       .from('privacy_settings')
@@ -35,22 +54,30 @@ export async function GET() {
       .maybeSingle()
 
     if (error) {
+      logDebug(`Database error: ${error.message}`)
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
     const exists = !!data
     let unlocked = false
 
+    logDebug(`Privacy settings exists: ${exists}, data=${JSON.stringify(data)}`)
+
     if (exists) {
       const cookieStore = await cookies()
       const headersList = await headers()
       const token = cookieStore.get('private_space_token')?.value || headersList.get('x-private-space-token')
       
-      unlocked = !!(token && verifySessionToken(token, user.id))
+      logDebug(`Token found: ${token ? 'yes' : 'no'}`)
+      if (token) {
+        unlocked = verifySessionToken(token, user.id)
+        logDebug(`verifySessionToken result: ${unlocked}`)
+      }
     }
 
     return NextResponse.json({ exists, unlocked })
-  } catch (err) {
+  } catch (err: any) {
+    logDebug(`Unhandled error: ${err?.message || err}`)
     console.error('Error checking passcode setup:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

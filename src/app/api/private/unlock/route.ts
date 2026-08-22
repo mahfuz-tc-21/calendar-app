@@ -15,17 +15,38 @@ function signSessionToken(userId: string) {
   return `${Buffer.from(payload).toString('base64')}.${signature}`
 }
 
+import fs from 'fs'
+
+function logDebug(message: string) {
+  try {
+    const logPath = 'd:/Mahfuz/Project/calendar app/debug.log'
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] [Unlock] ${message}\n`)
+  } catch (e) {
+    console.error('Failed to write debug log:', e)
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    logDebug('POST /api/private/unlock called')
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError) {
+      logDebug(`authError: ${authError.message}`)
+    }
 
     if (!user) {
+      logDebug('Unauthorized: No user found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    logDebug(`User authenticated: id=${user.id}, email=${user.email}`)
+
     const { passcode } = await request.json()
+    logDebug(`Passcode parameter received: ${passcode}`)
     if (!passcode || typeof passcode !== 'string') {
+      logDebug('Invalid passcode parameter')
       return NextResponse.json({ error: 'Unable to unlock private space.' }, { status: 400 })
     }
 
@@ -36,7 +57,12 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (fetchError || !settings) {
+    if (fetchError) {
+      logDebug(`Fetch error: ${fetchError.message}`)
+    }
+
+    if (!settings) {
+      logDebug('No privacy settings found for user in DB')
       return NextResponse.json({ error: 'Unable to unlock private space.' }, { status: 400 })
     }
 
@@ -51,19 +77,31 @@ export async function POST(request: Request) {
     }
 
     const hash = hashPasscode(passcode, user.id)
+    logDebug(`Computed hash: ${hash}`)
+    logDebug(`Stored hash: ${settings.access_key_hash}`)
 
     if (settings.access_key_hash === hash) {
-      // Success: Reset rate limit variables
-      await supabase
-        .from('privacy_settings')
-        .update({
-          failed_attempts: 0,
-          locked_until: null,
-        })
-        .eq('user_id', user.id)
+      logDebug('Passcode MATCH! Resetting rate limits and setting token...')
+      
+      // OPTIMIZATION: Avoid database write if it's already 0/null.
+      // If it is not, run the update in the background (fire-and-forget) to eliminate blocking latency!
+      if (settings.failed_attempts > 0 || settings.locked_until !== null) {
+        supabase
+          .from('privacy_settings')
+          .update({
+            failed_attempts: 0,
+            locked_until: null,
+          })
+          .eq('user_id', user.id)
+          .then(({ error }) => {
+            if (error) logDebug(`Background rate limit reset error: ${error.message}`)
+            else logDebug('Background rate limit reset success')
+          })
+      }
 
       // Sign session cookie
       const token = signSessionToken(user.id)
+      logDebug(`Generated token: ${token}`)
       const cookieStore = await cookies()
       cookieStore.set('private_space_token', token, {
         httpOnly: true,
@@ -99,7 +137,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ error: 'Unable to unlock private space.' }, { status: 400 })
     }
-  } catch (err) {
+  } catch (err: any) {
+    logDebug(`Unhandled error inside unlock: ${err?.message || err}`)
     console.error('Error during passcode verification:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

@@ -240,14 +240,9 @@ export function PrivateSpaceProvider({ children }: { children: React.ReactNode }
       }
     }
 
-    if (isLocalMatch) {
-      // Fire backend API in background and resolve instantly
-      runBackendUnlock()
-      return true
-    } else {
-      // Run and await backend
-      return await runBackendUnlock()
-    }
+    // Always await the backend unlock to ensure the token is saved in localStorage
+    // before navigation, preventing a race condition with the passcode check route.
+    return await runBackendUnlock()
   }, [showToast])
 
   const setupPasscode = useCallback(async (passcode: string): Promise<boolean> => {

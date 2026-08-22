@@ -70,7 +70,7 @@ export function AutoUpdateProvider({ children }: { children: React.ReactNode }) 
     console.log(`[CALENDAR_UPDATER] ${msg}`);
     setDebugLog(prev => [...prev.slice(-9), msg]); // keep last 10 lines
   };
-  const showDebugOverlay = process.env.NODE_ENV !== 'production';
+  const showDebugOverlay = false;
 
   const downloadListenerRef = useRef<any>(null);
   const checkInProgressRef = useRef(false);
