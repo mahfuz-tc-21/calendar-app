@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck, ChevronDown, Gamepad2 } from 'lucide-react'
+import { ArrowLeft, Send, Image as ImageIcon, Camera as CameraIcon, X, Trash2, Heart, ThumbsUp, Laugh, AlertCircle, Smile, HelpCircle, Lock, Loader2, Sparkles, Reply, MoreVertical, Check, CheckCheck, ChevronDown, Gamepad2, UserPlus } from 'lucide-react'
 import { useChat, Message, Reaction, Conversation } from '@/hooks/useChat'
 import { usePresence } from '@/hooks/usePresence'
 import { useAuth, Profile } from '@/context/AuthContext'
@@ -138,6 +138,7 @@ export default function ChatArea() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [isGamesMenuOpen, setIsGamesMenuOpen] = useState(false)
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
+  const [showAddPartnerModal, setShowAddPartnerModal] = useState(false)
 
   // Context Bottom Sheet Menu State
   const [selectedMenuMessage, setSelectedMenuMessage] = useState<Message | null>(null)
@@ -1152,15 +1153,25 @@ export default function ChatArea() {
       {/* 2. CHAT AGENT CONTAINER */}
       {!activeConversation ? (
         /* NO CONVERSATION OPEN: CHAT LIST & NEW CHAT SEARCH */
-        <div className="flex-1 flex flex-col md:flex-row max-w-4xl w-full mx-auto p-4 gap-4 overflow-hidden">
+        <div className="flex-1 flex flex-col max-w-xl w-full mx-auto p-4 overflow-hidden">
           
           {/* List panel */}
           <div className="flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-xs">
             <div className="px-4 py-3 border-b border-border bg-secondary/50 flex items-center justify-between shrink-0">
               <h2 className="font-semibold text-sm text-foreground">Conversations</h2>
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card px-2 py-0.5 rounded-full border border-border">
-                {conversations.length} Active
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-card px-2 py-0.5 rounded-full border border-border">
+                  {conversations.length} Active
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPartnerModal(true)}
+                  className="p-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center"
+                  title="Add Partner"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-border custom-scrollbar">
@@ -1203,38 +1214,6 @@ export default function ChatArea() {
                 ))
               )}
             </div>
-          </div>
-
-          {/* Setup / Invite panel */}
-          <div className="w-full md:w-80 bg-card border border-border rounded-2xl p-5 shadow-xs space-y-4 shrink-0 h-fit">
-            <div className="space-y-1">
-              <h2 className="font-semibold text-sm text-foreground">Add Authorized User</h2>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Connect with another user by inputting their exact username below. Conversations are limited to 2 people.
-              </p>
-            </div>
-
-            <form onSubmit={handleStartChat} className="space-y-3">
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  placeholder="Recipient Username"
-                  value={partnerUsername}
-                  onChange={(e) => setPartnerUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
-                  required
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isStartingChat || !partnerUsername.trim()}
-                className="w-full py-2 bg-primary hover:bg-blue-700 text-primary-foreground font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
-              >
-                {isStartingChat && <Loader2 className="w-4 h-4 animate-spin" />}
-                Add Partner
-              </button>
-            </form>
           </div>
 
         </div>
@@ -1852,6 +1831,62 @@ export default function ChatArea() {
         <ProfileModal
           onClose={() => setShowProfileModal(false)}
         />
+      )}
+
+      {/* 6.1 ADD PARTNER MODAL */}
+      {showAddPartnerModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200"
+          onClick={() => setShowAddPartnerModal(false)}
+        >
+          <div 
+            className="w-full max-w-sm bg-card border border-border rounded-3xl p-6 space-y-4 animate-in zoom-in-95 duration-200 z-50 shadow-2xl animate-out fade-out"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <h3 className="text-sm font-bold text-foreground">Add Authorized User</h3>
+              <button 
+                onClick={() => setShowAddPartnerModal(false)} 
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-secondary cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Connect with another user by inputting their exact username below. Conversations are limited to 2 people.
+            </p>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault()
+                await handleStartChat(e)
+                setShowAddPartnerModal(false)
+              }} 
+              className="space-y-3"
+            >
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  placeholder="Recipient Username"
+                  value={partnerUsername}
+                  onChange={(e) => setPartnerUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
+                  required
+                  className="w-full px-3.5 py-2 border border-border rounded-xl text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isStartingChat || !partnerUsername.trim()}
+                className="w-full py-2.5 bg-primary hover:bg-blue-700 text-primary-foreground font-semibold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+              >
+                {isStartingChat && <Loader2 className="w-4 h-4 animate-spin" />}
+                Add Partner
+              </button>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* 6.5 GAMES MENU MODAL */}
