@@ -13,6 +13,9 @@ export interface CalendarEvent {
   event_date: string // YYYY-MM-DD
   start_time: string | null // HH:MM
   end_time: string | null // HH:MM
+  reminder_offset?: string
+  reminder_custom_time?: string | null
+  reminder_repeat?: string
   created_at: string
   updated_at: string
 }

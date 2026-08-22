@@ -2,37 +2,36 @@
 
 import React, { useState, useEffect } from 'react'
 import { X, Trash2, Calendar, Clock, Loader2 } from 'lucide-react'
-import { CalendarEvent } from '@/hooks/useCalendar'
+import { PlannerTask } from '@/hooks/usePlanner'
 import { useReminders } from '@/hooks/useReminders'
 import { calculateReminderDate } from '@/utils/reminderHelper'
 
-interface EventDialogProps {
+interface TaskDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (eventData: any) => Promise<any>
+  onSave: (taskData: any) => Promise<any>
   onDelete?: (id: string) => Promise<boolean>
   selectedDate: string // YYYY-MM-DD
-  editingEvent: CalendarEvent | null
+  editingTask: PlannerTask | null
 }
 
-export default function EventDialog({
+export default function TaskDialog({
   isOpen,
   onClose,
   onSave,
   onDelete,
   selectedDate,
-  editingEvent,
-}: EventDialogProps) {
+  editingTask,
+}: TaskDialogProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
   const [hasTime, setHasTime] = useState(false)
-  const [startTime, setStartTime] = useState('09:00')
-  const [endTime, setEndTime] = useState('10:00')
+  const [taskTime, setTaskTime] = useState('09:00')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Reminder state
+  // Reminder settings
   const [reminderOffset, setReminderOffset] = useState('none')
   const [reminderCustomTime, setReminderCustomTime] = useState('09:00')
   const [reminderRepeat, setReminderRepeat] = useState('none')
@@ -40,35 +39,32 @@ export default function EventDialog({
 
   useEffect(() => {
     if (isOpen) {
-      if (editingEvent) {
-        setTitle(editingEvent.title)
-        setDescription(editingEvent.description || '')
-        setDate(editingEvent.event_date)
-        if (editingEvent.start_time) {
+      if (editingTask) {
+        setTitle(editingTask.title)
+        setDescription(editingTask.description || '')
+        setDate(editingTask.task_date)
+        if (editingTask.task_time) {
           setHasTime(true)
-          setStartTime(editingEvent.start_time.substring(0, 5))
-          setEndTime(editingEvent.end_time ? editingEvent.end_time.substring(0, 5) : '')
+          setTaskTime(editingTask.task_time.substring(0, 5))
         } else {
           setHasTime(false)
-          setStartTime('09:00')
-          setEndTime('10:00')
+          setTaskTime('09:00')
         }
-        setReminderOffset(editingEvent.reminder_offset || 'none')
-        setReminderCustomTime(editingEvent.reminder_custom_time ? editingEvent.reminder_custom_time.substring(0, 5) : '09:00')
-        setReminderRepeat(editingEvent.reminder_repeat || 'none')
+        setReminderOffset(editingTask.reminder_offset || 'none')
+        setReminderCustomTime(editingTask.reminder_custom_time ? editingTask.reminder_custom_time.substring(0, 5) : '09:00')
+        setReminderRepeat(editingTask.reminder_repeat || 'none')
       } else {
         setTitle('')
         setDescription('')
         setDate(selectedDate)
         setHasTime(false)
-        setStartTime('09:00')
-        setEndTime('10:00')
+        setTaskTime('09:00')
         setReminderOffset('none')
         setReminderCustomTime('09:00')
         setReminderRepeat('none')
       }
     }
-  }, [isOpen, editingEvent, selectedDate])
+  }, [isOpen, editingTask, selectedDate])
 
   if (!isOpen) return null
 
@@ -77,32 +73,31 @@ export default function EventDialog({
     if (!title.trim()) return
 
     setIsSaving(true)
-    const eventData = {
+    const taskData = {
       title: title.trim(),
       description: description.trim() || '',
-      event_date: date,
-      start_time: hasTime && startTime ? startTime : null,
-      end_time: hasTime && endTime ? endTime : null,
+      task_date: date,
+      task_time: hasTime && taskTime ? taskTime : null,
       reminder_offset: reminderOffset,
       reminder_custom_time: reminderOffset === 'custom' ? reminderCustomTime : null,
       reminder_repeat: reminderRepeat,
     }
 
-    const result = await onSave(eventData)
+    const result = await onSave(taskData)
     setIsSaving(false)
     if (result) {
       if (reminderOffset !== 'none') {
         const triggerDate = calculateReminderDate(
           date,
-          eventData.start_time,
+          taskData.task_time,
           reminderOffset,
           reminderOffset === 'custom' ? reminderCustomTime : null
         )
         if (triggerDate) {
           await scheduleReminder({
             id: result.id,
-            title: 'Calendar: ' + result.title,
-            body: result.description || 'Event starts soon',
+            title: 'Planner Task: ' + result.title,
+            body: result.description || 'Task due now',
             triggerAt: triggerDate,
             repeat: reminderRepeat !== 'none' ? (reminderRepeat as any) : undefined
           })
@@ -117,14 +112,14 @@ export default function EventDialog({
   }
 
   const handleDeleteClick = async () => {
-    if (!editingEvent || !onDelete) return
-    if (!confirm('Are you sure you want to delete this event?')) return
+    if (!editingTask || !onDelete) return
+    if (!confirm('Are you sure you want to delete this task?')) return
 
     setIsDeleting(true)
-    const success = await onDelete(editingEvent.id)
+    const success = await onDelete(editingTask.id)
     setIsDeleting(false)
     if (success) {
-      await cancelReminder(editingEvent.id)
+      await cancelReminder(editingTask.id)
       onClose()
     }
   }
@@ -136,7 +131,7 @@ export default function EventDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
-            {editingEvent ? 'Edit Event' : 'Create Event'}
+            {editingTask ? 'Edit Task' : 'Create Task'}
           </h2>
           <button
             onClick={onClose}
@@ -149,13 +144,13 @@ export default function EventDialog({
         {/* Form Body */}
         <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
           <div className="space-y-1 text-left">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="event-title">
-              Event Title
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="task-title">
+              Task Title
             </label>
             <input
-              id="event-title"
+              id="task-title"
               type="text"
-              placeholder="e.g. Design Sync"
+              placeholder="e.g. Complete Project Proposal"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
@@ -165,11 +160,11 @@ export default function EventDialog({
           </div>
 
           <div className="space-y-1 text-left">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="event-desc">
-              Description
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="task-desc">
+              Notes
             </label>
             <textarea
-              id="event-desc"
+              id="task-desc"
               placeholder="Add details, notes, or links..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -181,12 +176,12 @@ export default function EventDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1 text-left">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="event-date">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="task-date">
                 Date
               </label>
               <div className="relative">
                 <input
-                  id="event-date"
+                  id="task-date"
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
@@ -205,45 +200,26 @@ export default function EventDialog({
                   onChange={(e) => setHasTime(e.target.checked)}
                   className="w-4.5 h-4.5 text-primary border-border bg-card rounded focus:ring-primary focus:ring-2 cursor-pointer"
                 />
-                <span className="text-sm font-medium text-foreground">Specify Event Time</span>
+                <span className="text-sm font-medium text-foreground">Specify Task Time</span>
               </label>
             </div>
           </div>
 
           {hasTime && (
-            <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-200">
-              <div className="space-y-1 text-left">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="event-start">
-                  Start Time
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-start"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required={hasTime}
-                    className="w-full pl-10 pr-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                  />
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
-              </div>
-
-              <div className="space-y-1 text-left">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="event-end">
-                  End Time
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-end"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required={hasTime}
-                    className="w-full pl-10 pr-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                  />
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                </div>
+            <div className="space-y-1 text-left animate-in fade-in duration-200">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="task-time">
+                Due Time
+              </label>
+              <div className="relative">
+                <input
+                  id="task-time"
+                  type="time"
+                  value={taskTime}
+                  onChange={(e) => setTaskTime(e.target.value)}
+                  required={hasTime}
+                  className="w-full pl-10 pr-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                />
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
           )}
@@ -266,7 +242,7 @@ export default function EventDialog({
                   className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                 >
                   <option value="none">No Reminder</option>
-                  <option value="at">At time of event</option>
+                  <option value="at">At time of task</option>
                   <option value="5m">5 minutes before</option>
                   <option value="15m">15 minutes before</option>
                   <option value="30m">30 minutes before</option>
@@ -319,7 +295,7 @@ export default function EventDialog({
         {/* Footer / Actions */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-secondary/40">
           <div>
-            {editingEvent && onDelete && (
+            {editingTask && onDelete && (
               <button
                 type="button"
                 onClick={handleDeleteClick}
@@ -347,7 +323,7 @@ export default function EventDialog({
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-blue-700 dark:hover:bg-blue-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Save Event
+              Save Task
             </button>
           </div>
         </div>

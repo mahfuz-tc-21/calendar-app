@@ -135,3 +135,14 @@ html {
   --input: #1f273d;
   --ring: #3b82f6;
 }
+
+/* Custom Chat Themes */
+.theme-midnight {
+  --background: #060b18 !important;
+  --card: #0b1120 !important;
+  --secondary: #131b2e !important;
+  --border: #1e2942 !important;
+  --primary: #2563eb !important;
+  --primary-foreground: #ffffff !important;
+  --foreground: #f3f4f6 !important;
+}

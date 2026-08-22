@@ -128,6 +128,52 @@ export default function ChatArea() {
     fetchPartnerProfile()
   }, [activeConversation, supabase])
 
+  // Custom chat theme state and synchronization
+  const [chatTheme, setChatTheme] = useState('default')
+
+  useEffect(() => {
+    const fetchTheme = async () => {
+      if (!activeConversation || !user) {
+        setChatTheme('default')
+        return
+      }
+      try {
+        const { data } = await supabase
+          .from('conversation_themes')
+          .select('theme')
+          .eq('user_id', user.id)
+          .eq('conversation_id', activeConversation.id)
+          .maybeSingle()
+        if (data) {
+          setChatTheme(data.theme)
+        } else {
+          setChatTheme('default')
+        }
+      } catch (e) {
+        setChatTheme('default')
+      }
+    }
+    fetchTheme()
+  }, [activeConversation, user, supabase])
+
+  const toggleTheme = async () => {
+    if (!activeConversation || !user) return
+    const nextTheme = chatTheme === 'midnight' ? 'default' : 'midnight'
+    setChatTheme(nextTheme)
+    try {
+      await supabase
+        .from('conversation_themes')
+        .upsert({
+          user_id: user.id,
+          conversation_id: activeConversation.id,
+          theme: nextTheme,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,conversation_id' })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   // Input states
   const [inputText, setInputText] = useState('')
   const [partnerUsername, setPartnerUsername] = useState('')
@@ -1054,7 +1100,9 @@ export default function ChatArea() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden">
+    <div className={`flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden ${
+      activeConversation && chatTheme === 'midnight' ? 'theme-midnight' : ''
+    }`}>
       
       {/* 1. HEADER */}
       <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-xs">
@@ -1146,6 +1194,16 @@ export default function ChatArea() {
                     >
                       <ImageIcon className="w-4 h-4 text-muted-foreground" />
                       Media Gallery
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false)
+                        toggleTheme()
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-secondary/60 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4 text-muted-foreground" />
+                      {chatTheme === 'midnight' ? 'Theme: Midnight' : 'Theme: Default'}
                     </button>
                     <div className="border-t border-border my-1" />
                     <button

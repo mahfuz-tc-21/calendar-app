@@ -2,11 +2,16 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Edit2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, Edit2, CheckSquare, Smile, BarChart2, ArrowUp, ArrowDown } from 'lucide-react'
 import { useCalendar, CalendarEvent } from '@/hooks/useCalendar'
+import { usePlanner, PlannerTask } from '@/hooks/usePlanner'
+import { useMood, DailyMood } from '@/hooks/useMood'
 import { usePrivateSpace } from '@/context/PrivateSpaceContext'
 import { useToast } from '@/context/ToastContext'
 import EventDialog from './EventDialog'
+import TaskDialog from './TaskDialog'
+import MoodDialog from './MoodDialog'
+import WeeklyRecap from './WeeklyRecap'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -17,9 +22,26 @@ const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CalendarView() {
   const router = useRouter()
-  const { events, loading, isOffline, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar()
+  const { events, loading: eventsLoading, isOffline, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar()
+  const { tasks, loading: tasksLoading, fetchTasks, createTask, updateTask, deleteTask, reorderTasks } = usePlanner()
+  const { moods, loading: moodsLoading, fetchMoods, saveMood, deleteMood } = useMood()
   const { hasPasscode, unlock, setupPasscode, loading: privateSpaceLoading } = usePrivateSpace()
   const { showToast } = useToast()
+
+  const loading = eventsLoading || tasksLoading || moodsLoading
+
+  // Agenda list mode: 'events' vs 'planner'
+  const [agendaMode, setAgendaMode] = useState<'events' | 'planner'>('events')
+
+  // Task Dialog & Editing state
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<PlannerTask | null>(null)
+
+  // Mood Dialog state
+  const [isMoodDialogOpen, setIsMoodDialogOpen] = useState(false)
+
+  // Weekly Recap state
+  const [isRecapOpen, setIsRecapOpen] = useState(false)
 
   // Calendar Date State
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear())
@@ -63,10 +85,12 @@ export default function CalendarView() {
     router.prefetch('/private')
   }, [router])
 
-  // Fetch events when current month or year changes
+  // Fetch calendar components (events, planner tasks, and moods) when month changes
   useEffect(() => {
     fetchEvents(currentYear, currentMonth)
-  }, [currentYear, currentMonth, fetchEvents])
+    fetchTasks(currentYear, currentMonth)
+    fetchMoods(currentYear, currentMonth)
+  }, [currentYear, currentMonth, fetchEvents, fetchTasks, fetchMoods])
 
   // Year choices (Current year +/- 10 years)
   const years = useMemo(() => {
@@ -163,9 +187,43 @@ export default function CalendarView() {
     return map
   }, [events])
 
+  // Map tasks to dates
+  const tasksByDate = useMemo(() => {
+    const map: Record<string, PlannerTask[]> = {}
+    tasks.forEach((task) => {
+      const dStr = task.task_date
+      if (!map[dStr]) {
+        map[dStr] = []
+      }
+      map[dStr].push(task)
+    })
+    // Sort by reorder_index
+    Object.keys(map).forEach((d) => {
+      map[d].sort((a, b) => a.reorder_index - b.reorder_index)
+    })
+    return map
+  }, [tasks])
+
+  // Map moods to dates
+  const moodsByDate = useMemo(() => {
+    const map: Record<string, DailyMood> = {}
+    moods.forEach((m) => {
+      map[m.mood_date] = m
+    })
+    return map
+  }, [moods])
+
   const selectedDayEvents = useMemo(() => {
     return eventsByDate[selectedDate] || []
   }, [eventsByDate, selectedDate])
+
+  const selectedDayTasks = useMemo(() => {
+    return tasksByDate[selectedDate] || []
+  }, [tasksByDate, selectedDate])
+
+  const selectedDayMood = useMemo(() => {
+    return moodsByDate[selectedDate] || null
+  }, [moodsByDate, selectedDate])
 
   // Save event handler
   const handleSaveEvent = async (eventData: any) => {
@@ -181,14 +239,69 @@ export default function CalendarView() {
     return await deleteEvent(id)
   }
 
+  // Save task handler
+  const handleSaveTask = async (taskData: any) => {
+    if (editingTask) {
+      return await updateTask(editingTask.id, taskData)
+    } else {
+      return await createTask(taskData)
+    }
+  }
+
+  // Delete task handler
+  const handleDeleteTask = async (id: string) => {
+    return await deleteTask(id)
+  }
+
+  // Mood Save handler
+  const handleSaveMood = async (mood: DailyMood['mood'], note: string | null) => {
+    return await saveMood(selectedDate, mood, note)
+  }
+
+  // Mood Delete handler
+  const handleDeleteMood = async () => {
+    return await deleteMood(selectedDate)
+  }
+
+  // Reordering task handlers
+  const handleMoveTask = async (task: PlannerTask, direction: 'up' | 'down') => {
+    const list = [...selectedDayTasks]
+    const idx = list.findIndex(t => t.id === task.id)
+    if (idx === -1) return
+
+    if (direction === 'up' && idx > 0) {
+      // Swap with preceding
+      const temp = list[idx]
+      list[idx] = list[idx - 1]
+      list[idx - 1] = temp
+      await reorderTasks(list)
+    } else if (direction === 'down' && idx < list.length - 1) {
+      // Swap with succeeding
+      const temp = list[idx]
+      list[idx] = list[idx + 1]
+      list[idx + 1] = temp
+      await reorderTasks(list)
+    }
+  }
+
   const openCreateDialog = () => {
-    setEditingEvent(null)
-    setIsDialogOpen(true)
+    if (agendaMode === 'events') {
+      setEditingEvent(null)
+      setIsDialogOpen(true)
+    } else {
+      setEditingTask(null)
+      setIsTaskDialogOpen(true)
+    }
   }
 
   const openEditDialog = (event: CalendarEvent) => {
     setEditingEvent(event)
     setIsDialogOpen(true)
+  }
+
+  const openEditTaskDialog = (task: PlannerTask) => {
+    setEditingTask(task)
+    setIsTaskDialogOpen(true)
   }
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
@@ -205,6 +318,14 @@ export default function CalendarView() {
         
         {/* Actions */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsRecapOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+            title="Weekly Recap"
+          >
+            <BarChart2 className="w-4 h-4 text-primary" />
+            Recap
+          </button>
         </div>
       </header>
 
@@ -314,6 +435,7 @@ export default function CalendarView() {
             <div className="grid grid-cols-7 gap-0.5 sm:gap-1 border-t border-border pt-1">
               {gridDays.map(({ dateStr, dayNumber, isCurrentMonth }) => {
                 const dayEvents = eventsByDate[dateStr] || []
+                const dayMood = moodsByDate[dateStr]
                 const isSelected = dateStr === selectedDate
                 const isToday = dateStr === todayStr
 
@@ -407,11 +529,21 @@ export default function CalendarView() {
                             : 'text-foreground hover:bg-secondary'
                     }`}
                   >
-                    <span className="text-sm">{dayNumber}</span>
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="text-xs font-semibold">{dayNumber}</span>
+                      {dayMood && (
+                        <span className="text-[10px] select-none scale-90" title={`Mood: ${dayMood.mood}`}>
+                          {dayMood.mood === 'great' ? '😊' :
+                           dayMood.mood === 'good' ? '🙂' :
+                           dayMood.mood === 'okay' ? '😐' :
+                           dayMood.mood === 'bad' ? '😔' : '😞'}
+                        </span>
+                      )}
+                    </div>
                     
                     {/* Event indicators */}
                     {dayEvents.length > 0 && (
-                      <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${
+                      <span className={`absolute bottom-1 w-1 h-1 rounded-full ${
                         isSelected ? 'bg-primary-foreground' : 'bg-primary'
                       }`} />
                     )}
@@ -426,9 +558,64 @@ export default function CalendarView() {
 
         {/* Selected Day Agenda */}
         <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <div>
-              <h3 className="font-semibold text-foreground">Agenda</h3>
+          
+          {/* Toggle Switch between Events and Daily Planner */}
+          <div className="flex gap-2 p-1 bg-secondary/60 rounded-xl">
+            <button
+              onClick={() => setAgendaMode('events')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                agendaMode === 'events' 
+                  ? 'bg-card text-foreground shadow-xs' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Agenda Events
+            </button>
+            <button
+              onClick={() => setAgendaMode('planner')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                agendaMode === 'planner' 
+                  ? 'bg-card text-foreground shadow-xs' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Daily Planner
+            </button>
+          </div>
+
+          {/* Mood Check-In display/trigger */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-secondary/20">
+            <div className="flex items-center gap-2.5">
+              <Smile className="w-5 h-5 text-yellow-500" />
+              <div className="text-left">
+                <span className="text-xs font-bold text-foreground block">
+                  Mood: {selectedDayMood ? (
+                    selectedDayMood.mood === 'great' ? '😊 Great' :
+                    selectedDayMood.mood === 'good' ? '🙂 Good' :
+                    selectedDayMood.mood === 'okay' ? '😐 Okay' :
+                    selectedDayMood.mood === 'bad' ? '😔 Bad' : '😞 Difficult'
+                  ) : 'Not Logged'}
+                </span>
+                {selectedDayMood?.note && (
+                  <span className="text-[10px] text-muted-foreground block truncate max-w-[200px] mt-0.5">
+                    "{selectedDayMood.note}"
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setIsMoodDialogOpen(true)}
+              className="px-3 py-1 border border-border hover:bg-secondary rounded-lg text-[10px] font-extrabold text-foreground cursor-pointer transition-colors"
+            >
+              {selectedDayMood ? 'Update' : 'Log Mood'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="text-left">
+              <h3 className="font-semibold text-foreground">
+                {agendaMode === 'events' ? 'Events' : 'Tasks'} List
+              </h3>
               <p className="text-xs text-muted-foreground">
                 {new Date(selectedDate).toLocaleDateString('en-US', {
                   weekday: 'long',
@@ -442,60 +629,128 @@ export default function CalendarView() {
             
             <button
               onClick={openCreateDialog}
-              className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-blue-700 dark:hover:bg-blue-500 text-primary-foreground rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-blue-700 dark:hover:bg-blue-500 text-primary-foreground rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              Add Event
+              {agendaMode === 'events' ? 'Add Event' : 'Add Task'}
             </button>
           </div>
 
-          {/* Agenda list */}
-          {loading ? (
-            <div className="py-8 flex justify-center text-sm text-muted-foreground animate-pulse">
-              Loading agenda...
-            </div>
-          ) : selectedDayEvents.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground italic">
-              No events scheduled for this day
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {selectedDayEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="group flex items-start justify-between p-3.5 border border-border rounded-xl hover:bg-secondary/35 transition-colors"
-                >
-                  <div className="space-y-1.5 flex-1 pr-4">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm text-foreground leading-tight">
-                        {event.title}
-                      </h4>
-                      {event.start_time && (
-                        <div className="flex items-center gap-1 text-[11px] font-medium text-primary dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/25 px-2 py-0.5 rounded-full shrink-0">
-                          <Clock className="w-3 h-3" />
-                          <span>
-                            {event.start_time.substring(0, 5)}
-                            {event.end_time ? ` - ${event.end_time.substring(0, 5)}` : ''}
-                          </span>
-                        </div>
+          {/* List display */}
+          {agendaMode === 'events' ? (
+            /* Events view */
+            selectedDayEvents.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground italic">
+                No events scheduled for this day
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedDayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="group flex items-start justify-between p-3.5 border border-border rounded-xl hover:bg-secondary/35 transition-colors"
+                  >
+                    <div className="space-y-1.5 flex-1 pr-4 text-left">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-sm text-foreground leading-tight">
+                          {event.title}
+                        </h4>
+                        {event.start_time && (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-primary dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/25 px-2 py-0.5 rounded-full shrink-0">
+                            <Clock className="w-3 h-3" />
+                            <span>
+                              {event.start_time.substring(0, 5)}
+                              {event.end_time ? ` - ${event.end_time.substring(0, 5)}` : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {event.description && (
+                        <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                          {event.description}
+                        </p>
                       )}
                     </div>
-                    {event.description && (
-                      <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-                        {event.description}
-                      </p>
-                    )}
-                  </div>
 
-                  <button
-                    onClick={() => openEditDialog(event)}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-colors shrink-0"
+                    <button
+                      onClick={() => openEditDialog(event)}
+                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-colors shrink-0"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            /* Tasks Planner view */
+            selectedDayTasks.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground italic">
+                No planner tasks for this day
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedDayTasks.map((task, idx) => (
+                  <div
+                    key={task.id}
+                    className={`group flex items-start justify-between p-3.5 border rounded-xl hover:bg-secondary/35 transition-colors ${
+                      task.completed ? 'border-border/40 bg-secondary/10 opacity-70' : 'border-border'
+                    }`}
                   >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-start gap-3 flex-1 pr-4 text-left">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => updateTask(task.id, { completed: !task.completed })}
+                        className="w-4.5 h-4.5 text-primary border-border bg-card rounded focus:ring-primary focus:ring-2 cursor-pointer mt-0.5 shrink-0"
+                      />
+                      <div className="space-y-1">
+                        <h4 className={`font-semibold text-sm text-foreground leading-tight ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                          {task.title}
+                        </h4>
+                        {task.task_time && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground bg-secondary/70 px-2 py-0.5 rounded-full w-max">
+                            <Clock className="w-3 h-3" />
+                            <span>{task.task_time.substring(0, 5)}</span>
+                          </div>
+                        )}
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                            {task.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        disabled={idx === 0}
+                        onClick={() => handleMoveTask(task, 'up')}
+                        className="p-1 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        disabled={idx === selectedDayTasks.length - 1}
+                        onClick={() => handleMoveTask(task, 'down')}
+                        className="p-1 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => openEditTaskDialog(task)}
+                        className="p-1 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground cursor-pointer"
+                        title="Edit Task"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
         </div>
@@ -505,7 +760,7 @@ export default function CalendarView() {
       {/* Floating Plus button for convenient mobile access */}
       <button
         onClick={openCreateDialog}
-        aria-label="Add Event"
+        aria-label={agendaMode === 'events' ? 'Add Event' : 'Add Task'}
         className="fixed bottom-6 right-6 w-14 h-14 bg-primary hover:bg-blue-700 dark:hover:bg-blue-500 text-primary-foreground rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer z-20 md:hidden"
       >
         <Plus className="w-6 h-6" />
@@ -519,6 +774,29 @@ export default function CalendarView() {
         onDelete={handleDeleteEvent}
         selectedDate={selectedDate}
         editingEvent={editingEvent}
+      />
+
+      <TaskDialog
+        isOpen={isTaskDialogOpen}
+        onClose={() => setIsTaskDialogOpen(false)}
+        onSave={handleSaveTask}
+        onDelete={handleDeleteTask}
+        selectedDate={selectedDate}
+        editingTask={editingTask}
+      />
+
+      <MoodDialog
+        isOpen={isMoodDialogOpen}
+        onClose={() => setIsMoodDialogOpen(false)}
+        onSave={handleSaveMood}
+        onDelete={handleDeleteMood}
+        selectedDate={selectedDate}
+        existingMood={selectedDayMood}
+      />
+
+      <WeeklyRecap
+        isOpen={isRecapOpen}
+        onClose={() => setIsRecapOpen(false)}
       />
 
     </div>
