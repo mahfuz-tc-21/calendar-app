@@ -13,6 +13,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Source Code
@@ -72,8 +74,19 @@ jobs:
           BUILD_TOOL_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | tail -n 1)
           echo "BUILD_TOOLS_VERSION=$BUILD_TOOL_VERSION" >> $GITHUB_ENV
 
+      - name: Extract App Version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          patch=$(echo "$patch" | cut -d'-' -f1)
+          VERSION_CODE=$((major * 10000 + minor * 100 + patch))
+          echo "version_name=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
       - name: Sign Release APK
         id: sign_app
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: android/app/build/outputs/apk/release
@@ -83,7 +96,58 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload Signed Release APK Artifact
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: Calendar
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+
+      - name: Calculate Checksum
+        id: checksum
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: |
+          SIGNED_APK_PATH="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          SHA256_HASH=$(sha256sum "$SIGNED_APK_PATH" | awk '{print $1}')
+          echo "sha256=$SHA256_HASH" >> $GITHUB_OUTPUT
+          echo "SHA-256 Checksum: $SHA256_HASH"
+
+      - name: Generate Release Manifest
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: |
+          APK_FILENAME=$(basename "${{ steps.sign_app.outputs.signedReleaseFile }}")
+          TAG_NAME="${{ github.ref_name }}"
+          if [[ ! "$TAG_NAME" =~ ^v[0-9] ]]; then
+            TAG_NAME="v${{ steps.get_version.outputs.version_name }}"
+          fi
+          APK_URL="https://github.com/${{ github.repository }}/releases/download/${TAG_NAME}/${APK_FILENAME}"
+          
+          cat <<EOF > latest.json
+          {
+            "versionName": "${{ steps.get_version.outputs.version_name }}",
+            "versionCode": ${{ steps.get_version.outputs.version_code }},
+            "apkUrl": "${APK_URL}",
+            "mandatory": false,
+            "releaseNotes": [
+              "Security and performance improvements",
+              "Bug fixes and updates"
+            ],
+            "minimumSupportedVersionCode": ${{ steps.get_version.outputs.version_code }},
+            "publishedAt": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "sha256": "${{ steps.checksum.outputs.sha256 }}"
+          }
+          EOF
+          cat latest.json
+
+      - name: Create GitHub Release & Upload Assets
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', steps.get_version.outputs.version_name) }}
+          name: Release ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', steps.get_version.outputs.version_name) }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ steps.sign_app.outputs.signedReleaseFile }}
+            latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
