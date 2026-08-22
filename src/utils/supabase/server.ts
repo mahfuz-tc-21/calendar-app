@@ -6,6 +6,14 @@ export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 
+  let authHeader = ''
+  try {
+    const headersList = await headers()
+    authHeader = headersList.get('authorization') || ''
+  } catch (err) {
+    console.error('Error reading headers in createClient:', err)
+  }
+
   const client = createServerClient(
     url,
     anonKey,
@@ -25,6 +33,9 @@ export async function createClient() {
             // user sessions.
           }
         },
+      },
+      global: {
+        headers: authHeader ? { Authorization: authHeader } : undefined,
       },
     }
   )
