@@ -312,24 +312,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const randomMsg = CALENDAR_STEALTH_MESSAGES[Math.floor(Math.random() * CALENDAR_STEALTH_MESSAGES.length)]
             const cap = (window as any).Capacitor
 
-            if (cap && cap.isPluginAvailable('LocalNotifications')) {
-              try {
-                const { LocalNotifications } = require('@capacitor/local-notifications')
-                LocalNotifications.schedule({
-                  notifications: [
-                    {
-                      title: "Calendar Event",
-                      body: randomMsg,
-                      id: Math.floor(Math.random() * 100000),
-                      schedule: { at: new Date(Date.now() + 100) },
-                      channelId: 'calendar_stealth_notifications'
-                    }
-                  ]
-                })
-              } catch (e) {
-                console.error("Failed to render native local notification:", e)
-              }
-            } else if ('Notification' in window) {
+            // Only trigger notification on desktop web browsers.
+            // On mobile native (Android), FCM background push notifications are handled natively by the OS (showing the custom calendar app logo).
+            // We skip triggering a local notification here to prevent duplicates.
+            if (!cap && 'Notification' in window) {
               if (Notification.permission === 'granted') {
                 try {
                   const notification = new Notification("Calendar Event", {
