@@ -1,0 +1,46 @@
+[2026-08-26T16:51:07.220Z] [Check] GET /api/private/check called
+[2026-08-26T16:51:07.235Z] [Check] authError: Auth session missing!
+[2026-08-26T16:51:07.236Z] [Check] Unauthorized: No user found
+[2026-08-26T16:51:07.341Z] [Check] GET /api/private/check called
+[2026-08-26T16:51:07.347Z] [Check] authError: Auth session missing!
+[2026-08-26T16:51:07.348Z] [Check] Unauthorized: No user found
+[2026-08-26T16:51:48.873Z] [Check] GET /api/private/check called
+[2026-08-26T16:51:49.311Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:51:49.467Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:51:49.468Z] [Check] Token found: no
+[2026-08-26T16:52:07.530Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:07.955Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:08.134Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:08.134Z] [Check] Token found: no
+[2026-08-26T16:52:08.392Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:08.838Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:08.982Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:08.984Z] [Check] Token found: no
+[2026-08-26T16:52:09.256Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:09.763Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:09.912Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:09.912Z] [Check] Token found: no
+[2026-08-26T16:52:10.707Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:11.125Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:11.268Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:11.269Z] [Check] Token found: no
+[2026-08-26T16:52:11.539Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:11.965Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:12.111Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:12.112Z] [Check] Token found: no
+[2026-08-26T16:52:12.345Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:12.761Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:12.908Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:12.909Z] [Check] Token found: no
+[2026-08-26T16:52:20.251Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:20.658Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:20.795Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:20.796Z] [Check] Token found: no
+[2026-08-26T16:52:21.011Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:21.414Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:21.564Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:21.565Z] [Check] Token found: no
+[2026-08-26T16:52:21.794Z] [Check] GET /api/private/check called
+[2026-08-26T16:52:22.213Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-26T16:52:22.357Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-26T16:52:22.358Z] [Check] Token found: no
