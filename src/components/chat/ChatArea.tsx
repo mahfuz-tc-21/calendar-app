@@ -1128,7 +1128,7 @@ export default function ChatArea({ onActiveChatChange }: { onActiveChatChange?: 
   }
 
   return (
-    <div className={`flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden ${
+    <div className={`flex-1 flex flex-col bg-background overflow-hidden ${
       activeConversation && chatTheme !== 'default' ? `theme-${chatTheme}` : ''
     }`}>
       

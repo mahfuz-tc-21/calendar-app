@@ -26,7 +26,7 @@ export default function PrivatePage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col h-dvh max-h-dvh bg-background text-foreground overflow-hidden">
       {/* Secure Header */}
       {!hasActiveChat && (
         <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-card shadow-xs shrink-0 select-none">
