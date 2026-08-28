@@ -1,5 +1,5 @@
 -- ============================================================================
--- REMOTE GALLERY PHASE 1 DATABASE MIGRATION
+-- REMOTE GALLERY PHASE 1 DATABASE MIGRATION (REVISED)
 -- Run this script in the Supabase SQL Editor to initialize the necessary
 -- tables, indexes, constraints, and Row Level Security policies.
 -- ============================================================================
@@ -20,24 +20,11 @@ CREATE TABLE IF NOT EXISTS public.devices (
   app_version TEXT NOT NULL,
   is_online BOOLEAN NOT NULL DEFAULT false,
   last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  is_paired BOOLEAN NOT NULL DEFAULT false,
-  paired_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 3. Device Pairing Codes Table
-CREATE TABLE IF NOT EXISTS public.pairing_codes (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  code_hash TEXT UNIQUE NOT NULL, -- SHA-256 hash of the code to prevent leaking raw values
-  created_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL, -- Admin user
-  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  used_at TIMESTAMP WITH TIME ZONE,
-  device_id UUID REFERENCES public.devices(id) ON DELETE SET NULL, -- Device paired
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- 4. Audit Logging Table
+-- 3. Audit Logging Table
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   admin_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -54,14 +41,12 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 CREATE INDEX IF NOT EXISTS idx_devices_user_id ON public.devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_devices_is_online ON public.devices(is_online);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON public.devices(last_seen);
-CREATE INDEX IF NOT EXISTS idx_pairing_codes_code_hash ON public.pairing_codes(code_hash);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 ALTER TABLE public.devices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pairing_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to verify if the requesting user is an admin
@@ -103,22 +88,10 @@ CREATE POLICY "Admins can select all devices"
   TO authenticated
   USING (public.is_admin());
 
--- Admins can update all devices (e.g. unpair)
+-- Admins can update all devices
 DROP POLICY IF EXISTS "Admins can update all devices" ON public.devices;
 CREATE POLICY "Admins can update all devices"
   ON public.devices FOR UPDATE
-  TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
-
--- --- RLS Policies for Pairing Codes ---
--- Note: Verification/reconciliation happens in secure server-side API routes,
--- but we define policies for table access here.
-
--- Admins can perform all actions on pairing codes
-DROP POLICY IF EXISTS "Admins have full access to pairing codes" ON public.pairing_codes;
-CREATE POLICY "Admins have full access to pairing codes"
-  ON public.pairing_codes FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());

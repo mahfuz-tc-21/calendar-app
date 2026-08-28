@@ -19,20 +19,16 @@ export async function POST(request: Request) {
 
     const adminSupabase = createAdminClient()
 
-    // 1. Verify the device is paired and belongs to this user
+    // 1. Verify the device is registered and belongs to this user
     const { data: device, error: deviceError } = await adminSupabase
       .from('devices')
-      .select('id, is_paired')
+      .select('id')
       .eq('device_id', deviceId)
       .eq('user_id', user.id)
       .maybeSingle()
 
     if (deviceError || !device) {
       return NextResponse.json({ error: 'Device not registered' }, { status: 404 })
-    }
-
-    if (!device.is_paired) {
-      return NextResponse.json({ error: 'Device not authorized for syncing' }, { status: 403 })
     }
 
     // 2. Map and Upsert new or modified media metadata

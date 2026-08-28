@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const adminSupabase = createAdminClient()
 
-    // 1. Get the device user_id before updating (for auditing)
+    // 1. Get the device user_id and name before deleting (for auditing)
     const { data: deviceData, error: fetchErr } = await adminSupabase
       .from('devices')
       .select('user_id, device_name')
@@ -36,33 +36,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Device not found' }, { status: 404 })
     }
 
-    // 2. Unpair the device
-    const { error: updateError } = await adminSupabase
+    // 2. Delete the device from the database
+    const { error: deleteError } = await adminSupabase
       .from('devices')
-      .update({
-        is_paired: false,
-        paired_at: null,
-        updated_at: new Date().toISOString()
-      })
+      .delete()
       .eq('id', id)
 
-    if (updateError) {
-      console.error('Failed to unpair device in DB:', updateError.message)
-      return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
+    if (deleteError) {
+      console.error('Failed to delete device from DB:', deleteError.message)
+      return NextResponse.json({ error: 'Database delete failed' }, { status: 500 })
     }
 
     // 3. Write Audit Log
     await createAuditLog(
       user.id,
-      'DEVICE_UNPAIR',
+      'DEVICE_REMOVE',
       deviceData.user_id,
       id,
       { device_name: deviceData.device_name }
     )
 
-    return NextResponse.json({ success: true, message: 'Device unpaired successfully' })
+    return NextResponse.json({ success: true, message: 'Device removed successfully' })
   } catch (err: any) {
-    console.error('Unpair device error:', err)
+    console.error('Delete device error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
