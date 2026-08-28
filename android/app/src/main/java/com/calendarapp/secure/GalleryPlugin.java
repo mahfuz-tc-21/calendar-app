@@ -21,6 +21,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -90,7 +91,7 @@ public class GalleryPlugin extends Plugin {
         call.resolve(ret);
     }
 
-    @permissionCallback
+    @PermissionCallback
     private void permissionCallback(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("granted", hasRequiredPermission());

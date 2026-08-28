@@ -232,3 +232,49 @@
 [2026-08-28T16:35:55.004Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
 [2026-08-28T16:35:55.182Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
 [2026-08-28T16:35:55.182Z] [Check] Token found: no
+[2026-08-28T16:39:10.910Z] [Unlock] POST /api/private/unlock called
+[2026-08-28T16:39:11.543Z] [Unlock] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:39:11.545Z] [Unlock] Passcode parameter received: 07,08
+[2026-08-28T16:39:11.750Z] [Unlock] Computed hash: 375c732a5dd9ea54aee0a615a3b374217c50b53e8a0bddb609af072f0e554152
+[2026-08-28T16:39:11.751Z] [Unlock] Stored hash: 375c732a5dd9ea54aee0a615a3b374217c50b53e8a0bddb609af072f0e554152
+[2026-08-28T16:39:11.752Z] [Unlock] Passcode MATCH! Resetting rate limits and setting token...
+[2026-08-28T16:39:11.755Z] [Unlock] Generated token: eyJ1c2VySWQiOiI3MzA5ZGVmNy0xODJlLTRmMjUtODA1Yi0xNTYxNWY2OGMzYjciLCJleHAiOjE3ODc5MzY5NTE3NTR9.0d324793765c2fdaa658a492688611b39902b3a6c6e1f70f31f33197737362ba
+[2026-08-28T16:39:38.950Z] [Check] GET /api/private/check called
+[2026-08-28T16:39:39.483Z] [Check] User authenticated: id=aef7d4d7-323c-4c08-9334-75cf71220e75, email=akhey@gmail.com
+[2026-08-28T16:39:39.631Z] [Check] Privacy settings exists: true, data={"id":"8239e937-63d0-4be3-888b-45b15297493f"}
+[2026-08-28T16:39:39.632Z] [Check] Token found: no
+[2026-08-28T16:39:45.469Z] [Check] GET /api/private/check called
+[2026-08-28T16:39:45.898Z] [Check] User authenticated: id=aef7d4d7-323c-4c08-9334-75cf71220e75, email=akhey@gmail.com
+[2026-08-28T16:39:46.038Z] [Check] Privacy settings exists: true, data={"id":"8239e937-63d0-4be3-888b-45b15297493f"}
+[2026-08-28T16:39:46.038Z] [Check] Token found: no
+[2026-08-28T16:39:46.263Z] [Check] GET /api/private/check called
+[2026-08-28T16:39:46.694Z] [Check] User authenticated: id=aef7d4d7-323c-4c08-9334-75cf71220e75, email=akhey@gmail.com
+[2026-08-28T16:39:46.869Z] [Check] Privacy settings exists: true, data={"id":"8239e937-63d0-4be3-888b-45b15297493f"}
+[2026-08-28T16:39:46.870Z] [Check] Token found: no
+[2026-08-28T16:39:47.121Z] [Check] GET /api/private/check called
+[2026-08-28T16:39:47.542Z] [Check] User authenticated: id=aef7d4d7-323c-4c08-9334-75cf71220e75, email=akhey@gmail.com
+[2026-08-28T16:39:47.717Z] [Check] Privacy settings exists: true, data={"id":"8239e937-63d0-4be3-888b-45b15297493f"}
+[2026-08-28T16:39:47.718Z] [Check] Token found: no
+[2026-08-28T16:39:50.695Z] [Unlock] POST /api/private/unlock called
+[2026-08-28T16:39:51.180Z] [Unlock] User authenticated: id=aef7d4d7-323c-4c08-9334-75cf71220e75, email=akhey@gmail.com
+[2026-08-28T16:39:51.182Z] [Unlock] Passcode parameter received: 07,08
+[2026-08-28T16:39:51.324Z] [Unlock] Computed hash: 3424827b78308c1b4b712368d072ba7453a8ab31509bc61460bc3b40013bb71b
+[2026-08-28T16:39:51.325Z] [Unlock] Stored hash: 3424827b78308c1b4b712368d072ba7453a8ab31509bc61460bc3b40013bb71b
+[2026-08-28T16:39:51.325Z] [Unlock] Passcode MATCH! Resetting rate limits and setting token...
+[2026-08-28T16:39:51.326Z] [Unlock] Generated token: eyJ1c2VySWQiOiJhZWY3ZDRkNy0zMjNjLTRjMDgtOTMzNC03NWNmNzEyMjBlNzUiLCJleHAiOjE3ODc5MzY5OTEzMjZ9.49e29d3bb24d4cb00e60508cabf33d6515e4c0e93154f6895dbaf8ba6fada811
+[2026-08-28T16:40:00.747Z] [Check] GET /api/private/check called
+[2026-08-28T16:40:01.215Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:40:01.398Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:40:01.401Z] [Check] Token found: no
+[2026-08-28T16:40:05.338Z] [Check] GET /api/private/check called
+[2026-08-28T16:40:05.783Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:40:05.942Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:40:05.964Z] [Check] Token found: no
+[2026-08-28T16:40:06.243Z] [Check] GET /api/private/check called
+[2026-08-28T16:40:07.211Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:40:07.369Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:40:07.370Z] [Check] Token found: no
+[2026-08-28T16:40:07.682Z] [Check] GET /api/private/check called
+[2026-08-28T16:40:08.133Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:40:08.399Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:40:08.399Z] [Check] Token found: no
