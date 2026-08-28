@@ -68,3 +68,27 @@
 [2026-08-26T16:53:14.286Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
 [2026-08-26T16:53:14.425Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
 [2026-08-26T16:53:14.426Z] [Check] Token found: no
+[2026-08-28T16:21:59.456Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:00.006Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:00.168Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:00.170Z] [Check] Token found: no
+[2026-08-28T16:22:00.534Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:01.099Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:01.328Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:01.328Z] [Check] Token found: no
+[2026-08-28T16:22:01.570Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:02.028Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:02.212Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:02.212Z] [Check] Token found: no
+[2026-08-28T16:22:47.149Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:47.555Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:47.696Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:47.697Z] [Check] Token found: no
+[2026-08-28T16:22:48.008Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:48.422Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:48.607Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:48.608Z] [Check] Token found: no
+[2026-08-28T16:22:48.955Z] [Check] GET /api/private/check called
+[2026-08-28T16:22:49.437Z] [Check] User authenticated: id=7309def7-182e-4f25-805b-15615f68c3b7, email=mahfux090@gmail.com
+[2026-08-28T16:22:49.634Z] [Check] Privacy settings exists: true, data={"id":"f7807f78-fb87-4f9e-b1cc-827ce2f3ffee"}
+[2026-08-28T16:22:49.635Z] [Check] Token found: no

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { type User } from '@supabase/supabase-js'
+import { useGallerySync } from '@/hooks/useGallerySync'
 
 export interface Profile {
   id: string
@@ -12,6 +13,7 @@ export interface Profile {
   last_seen: string
   read_receipts_enabled?: boolean
   active_status_enabled?: boolean
+  is_admin?: boolean
   created_at: string
   updated_at: string
 }
@@ -66,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at, read_receipts_enabled, active_status_enabled')
+        .select('id, username, display_name, avatar_url, last_seen, created_at, updated_at, read_receipts_enabled, active_status_enabled, is_admin')
         .eq('id', uid)
         .single()
       if (data) {
@@ -173,6 +175,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(updateLastSeen, 60 * 1000)
     return () => clearInterval(interval)
   }, [user, supabase])
+
+  // Register and update device presence periodically
+  useEffect(() => {
+    if (!user) return
+
+    const registerAndHeartbeat = async () => {
+      try {
+        const { getDeviceMetadata } = await import('@/utils/device')
+        const metadata = await getDeviceMetadata()
+        
+        await fetch('/api/device/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadata),
+        })
+      } catch (err) {
+        console.error('Error during device registration/heartbeat:', err)
+      }
+    }
+
+    registerAndHeartbeat()
+    const interval = setInterval(registerAndHeartbeat, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [user])
+
 
   const signOut = async () => {
     setIsLoading(true)
@@ -382,6 +411,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setupPushToken()
   }, [user, supabase])
+
+  // Start incremental background gallery sync for paired devices
+  useGallerySync(user)
 
   return (
     <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile }}>

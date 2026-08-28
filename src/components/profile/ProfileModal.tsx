@@ -27,6 +27,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
+  // Device Pairing State
+  const [deviceId, setDeviceId] = useState('')
+  const [isDevicePaired, setIsDevicePaired] = useState(false)
+  const [pairingCodeInput, setPairingCodeInput] = useState('')
+  const [isPairing, setIsPairing] = useState(false)
+  const [checkingDevice, setCheckingDevice] = useState(true)
+
   const handleLogoutClick = async () => {
     if (confirm('Are you sure you want to logout?')) {
       onClose()
@@ -45,6 +52,67 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
       setActiveStatus(profile.active_status_enabled !== false)
     }
   }, [profile])
+
+  useEffect(() => {
+    const checkDevicePairing = async () => {
+      try {
+        const { getOrCreateDeviceId } = await import('@/utils/device')
+        const id = await getOrCreateDeviceId()
+        setDeviceId(id)
+        
+        const { data, error } = await supabase
+          .from('devices')
+          .select('is_paired')
+          .eq('device_id', id)
+          .maybeSingle()
+          
+        if (data) {
+          setIsDevicePaired(data.is_paired)
+        }
+      } catch (err) {
+        console.error('Failed to check device pairing:', err)
+      } finally {
+        setCheckingDevice(false)
+      }
+    }
+    
+    if (user) {
+      checkDevicePairing()
+    }
+  }, [user, supabase])
+
+  const handlePairDevice = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!pairingCodeInput.trim() || isPairing) return
+
+    setIsPairing(true)
+    try {
+      const res = await fetch('/api/device/pair', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pairingCode: pairingCodeInput.trim().toUpperCase(),
+          deviceId
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setIsDevicePaired(true)
+        setPairingCodeInput('')
+        showToast('Device paired successfully!', 'success')
+      } else {
+        showToast(data.error || 'Pairing failed', 'error')
+      }
+    } catch (err: any) {
+      showToast('An error occurred during pairing', 'error')
+    } finally {
+      setIsPairing(false)
+    }
+  }
 
   const handleSelectAvatar = async () => {
     if (!user) return
@@ -262,6 +330,54 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
                   className="w-4 h-4 text-primary focus:ring-primary border-border rounded cursor-pointer mt-1 shrink-0"
                 />
               </div>
+            </div>
+
+            {/* Device Authorization */}
+            <div className="flex flex-col gap-3 text-left border-t border-border pt-4">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
+                Device Authorization
+              </span>
+              {checkingDevice ? (
+                <div className="flex items-center gap-2 p-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Checking authorization...</span>
+                </div>
+              ) : isDevicePaired ? (
+                <div className="flex items-center gap-2 p-1.5 bg-green-500/10 rounded-xl border border-green-500/20 text-green-600 dark:text-green-400">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-bold">This device is authorized for Remote Gallery</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 p-1">
+                  <p className="text-[10px] text-muted-foreground leading-tight mb-1">
+                    This device is registered but not authorized. Enter an Admin pairing code to authorize this device.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="A7K9-29MX"
+                      value={pairingCodeInput}
+                      onChange={(e) => {
+                        let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
+                        if (val.length === 4 && !val.includes('-') && e.nativeEvent instanceof InputEvent && e.nativeEvent.inputType !== 'deleteContentBackward') {
+                          val = val + '-'
+                        }
+                        setPairingCodeInput(val)
+                      }}
+                      maxLength={9}
+                      className="flex-1 px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
+                    />
+                    <button
+                      type="button"
+                      disabled={isPairing || !pairingCodeInput.trim()}
+                      onClick={handlePairDevice}
+                      className="px-3 py-1.5 bg-primary hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center min-w-[50px]"
+                    >
+                      {isPairing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Pair'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
