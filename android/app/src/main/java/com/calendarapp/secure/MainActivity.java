@@ -10,7 +10,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(AutoUpdatePlugin.class);
-        registerPlugin(GalleryPlugin.class);
         // Strip any notification routing data from the launch Intent before Capacitor
         // processes it. This prevents FCM payload data from being used for navigation.
         sanitizeIntent(getIntent());

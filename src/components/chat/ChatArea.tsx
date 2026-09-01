@@ -24,17 +24,6 @@ import GamesMenu from './GamesMenu'
 import ChatListAvatar from './ChatListAvatar'
 import { Clipboard } from '@capacitor/clipboard'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { registerPlugin, Capacitor } from '@capacitor/core'
-
-interface GalleryPluginType {
-  checkPermission(): Promise<{ granted: boolean }>;
-  requestPermission(): Promise<{ granted: boolean }>;
-  getPermissionStatus(): Promise<{ status: string }>;
-  listMedia(options: { limit: number; offset: number }): Promise<{ media: any[] }>;
-  getThumbnail(options: { mediaId: string }): Promise<{ base64: string; mimeType: string }>;
-  getMedia(options: { mediaId: string }): Promise<{ base64: string; mimeType: string }>;
-}
-const Gallery = registerPlugin<GalleryPluginType>('Gallery')
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '😡']
 
@@ -595,17 +584,6 @@ export default function ChatArea({ onActiveChatChange }: { onActiveChatChange?: 
   // Helper: Native picking of multiple images from Android Gallery
   const handleNativeGalleryPick = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        const { granted } = await Gallery.checkPermission()
-        if (!granted) {
-          const req = await Gallery.requestPermission()
-          if (!req.granted) {
-            showToast('Photo access permission is required.', 'error')
-            return
-          }
-        }
-      }
-
       const images = await Camera.pickImages({
         quality: 70, // Natively compress photo quality to 70%
         limit: 0, // No selection count limit
@@ -1150,7 +1128,7 @@ export default function ChatArea({ onActiveChatChange }: { onActiveChatChange?: 
   }
 
   return (
-    <div className={`flex-1 flex flex-col bg-background overflow-hidden ${
+    <div className={`flex-1 flex flex-col bg-background h-screen max-h-screen overflow-hidden ${
       activeConversation && chatTheme !== 'default' ? `theme-${chatTheme}` : ''
     }`}>
       

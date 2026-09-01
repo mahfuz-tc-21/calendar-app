@@ -55,8 +55,8 @@ export async function updateSession(request: NextRequest) {
   // Auth pages (login, signup)
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup')
   
-  // Protected pages (calendar, private chat, admin dashboard)
-  const isProtectedPage = pathname.startsWith('/calendar') || pathname.startsWith('/private') || pathname.startsWith('/admin')
+  // Protected pages (calendar, private chat)
+  const isProtectedPage = pathname.startsWith('/calendar') || pathname.startsWith('/private')
 
   if (!user && isProtectedPage) {
     const cookies = request.cookies.getAll()
