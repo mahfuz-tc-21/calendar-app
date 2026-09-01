@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "846753359039",
+    "project_id": "calendar-private-chat",
+    "storage_bucket": "calendar-private-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:846753359039:android:aa2e0db3eea589a832120a",
+        "android_client_info": {
+          "package_name": "com.calendarapp.secure"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe28SD_ODY95JeVT3swD4Zkef--pP9dSU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
